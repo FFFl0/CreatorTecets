@@ -10,6 +10,11 @@ services:
       # Почты администраторов через запятую (модерация шаблонов).
       # Если пусто — администратор первый зарегистрированный пользователь.
       ADMIN_EMAILS: ${ADMIN_EMAILS:-}
+      # Рекламная сеть Яндекса: идентификаторы блоков вида R-A-1234567-1 (пусто — без рекламы)
+      YANDEX_RTB_SIDEBAR: ${YANDEX_RTB_SIDEBAR:-}
+      YANDEX_RTB_BOTTOM: ${YANDEX_RTB_BOTTOM:-}
+      # Номер счётчика Яндекс Метрики (необязательно)
+      YANDEX_METRIKA_ID: ${YANDEX_METRIKA_ID:-}
     volumes:
       - creatortecets-data:/data   # пользователи и сохранённые билеты
     restart: unless-stopped

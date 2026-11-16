@@ -1842,6 +1842,48 @@
     }
   });
 
+  // --------------------------------------- реклама и Яндекс Метрика
+  function loadScriptOnce(src) {
+    if ([...document.scripts].some((sc) => sc.src === src)) return;
+    const sc = document.createElement("script");
+    sc.src = src;
+    sc.async = true;
+    document.head.append(sc);
+  }
+
+  function setupAds(ads) {
+    const slots = [
+      ["sidebar", "#ad-sidebar", "yandex_rtb_sidebar"],
+      ["bottom", "#ad-bottom", "yandex_rtb_bottom"],
+    ].filter(([key]) => ads?.[key]);
+    if (!slots.length) return;
+    window.yaContextCb = window.yaContextCb || [];
+    loadScriptOnce("https://yandex.ru/ads/system/context.js");
+    for (const [key, wrap, renderTo] of slots) {
+      $(wrap).hidden = false;
+      window.yaContextCb.push(() => {
+        window.Ya.Context.AdvManager.render({ blockId: ads[key], renderTo });
+      });
+    }
+  }
+
+  function setupMetrika(id) {
+    if (!id) return;
+    window.ym = window.ym || function () { (window.ym.a = window.ym.a || []).push(arguments); };
+    window.ym.l = Date.now();
+    loadScriptOnce("https://mc.yandex.ru/metrika/tag.js");
+    window.ym(id, "init", { clickmap: true, trackLinks: true, accurateTrackBounce: true });
+  }
+
+  fetch("/api/config")
+    .then((r) => (r.ok ? r.json() : null))
+    .then((cfg) => {
+      if (!cfg) return;
+      setupMetrika(cfg.metrika);
+      setupAds(cfg.ads);
+    })
+    .catch(() => { /* без рекламы */ });
+
   // ------------------------------------------------------------------ init
   (async () => {
     restore();

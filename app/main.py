@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import os
+import re
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, Response
@@ -36,6 +38,27 @@ async def same_origin_guard(request: Request, call_next):
             if origin.split("://", 1)[-1] != host:
                 return JSONResponse({"detail": "Запрос с чужого сайта отклонён."}, status_code=403)
     return await call_next(request)
+
+
+RTB_RE = re.compile(r"^R-A-\d+-\d+$")
+
+
+def _env_block(name: str) -> str | None:
+    value = os.environ.get(name, "").strip()
+    return value if RTB_RE.match(value) else None
+
+
+@app.get("/api/config")
+def site_config() -> dict:
+    """Настройки сайта для браузера: блоки Рекламной сети Яндекса и счётчик Метрики."""
+    metrika = os.environ.get("YANDEX_METRIKA_ID", "").strip()
+    return {
+        "ads": {
+            "sidebar": _env_block("YANDEX_RTB_SIDEBAR"),
+            "bottom": _env_block("YANDEX_RTB_BOTTOM"),
+        },
+        "metrika": int(metrika) if metrika.isdigit() else None,
+    }
 
 
 @app.get("/api/health")

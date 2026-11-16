@@ -3,6 +3,7 @@
 #   Без домена:  sudo bash setup.sh
 #   С доменом:   sudo DOMAIN=tickets.example.ru bash setup.sh
 #   Администратор: добавьте ADMIN_EMAILS=you@example.ru (иначе — первый зарегистрированный)
+#   Реклама РСЯ:   YANDEX_RTB_SIDEBAR=R-A-…-1 YANDEX_RTB_BOTTOM=R-A-…-2 YANDEX_METRIKA_ID=…
 set -euo pipefail
 
 REPO="${REPO:-https://github.com/FFFl0/CreatorTecets.git}"
@@ -37,7 +38,9 @@ cd "$DIR"
 
 echo "==> Сборка и запуск (первый раз — несколько минут)"
 : > .env
-[ -n "${ADMIN_EMAILS:-}" ] && echo "ADMIN_EMAILS=$ADMIN_EMAILS" >> .env
+for var in ADMIN_EMAILS YANDEX_RTB_SIDEBAR YANDEX_RTB_BOTTOM YANDEX_METRIKA_ID; do
+  [ -n "${!var:-}" ] && echo "$var=${!var}" >> .env
+done
 if [ -n "${DOMAIN:-}" ]; then
   echo "DOMAIN=$DOMAIN" >> .env
   docker compose -f docker-compose.yml -f deploy/docker-compose.https.yml up -d --build
