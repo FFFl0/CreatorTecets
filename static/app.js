@@ -86,9 +86,17 @@
     const t = $("#toast");
     t.textContent = msg;
     t.classList.toggle("error", isError);
-    t.classList.add("show");
+    // popover — чтобы уведомление было видно и поверх открытых окон
+    if (t.showPopover) {
+      try { t.hidePopover(); } catch { /* уже скрыт */ }
+      t.showPopover();
+    }
+    requestAnimationFrame(() => t.classList.add("show"));
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => t.classList.remove("show"), isError ? 5000 : 2600);
+    toastTimer = setTimeout(() => {
+      t.classList.remove("show");
+      setTimeout(() => { if (!t.classList.contains("show") && t.hidePopover) try { t.hidePopover(); } catch { /* */ } }, 250);
+    }, isError ? 5000 : 2600);
   }
 
   function busy(on, text = "Формирование…") {
@@ -1055,38 +1063,169 @@
 
   // ---- вход / регистрация
   let afterAuth = null;
-  function authMode() { return $("input[name=auth-mode]:checked").value; }
-  function syncAuthMode() {
-    const reg = authMode() === "register";
-    $("#auth-name-row").hidden = !reg;
-    $("#auth-pass-hint").hidden = !reg;
-    $("#auth-submit").textContent = reg ? "Зарегистрироваться" : "Войти";
-    $("#auth-password").autocomplete = reg ? "new-password" : "current-password";
-    $("#auth-error").hidden = true;
+  let authReason = "";
+  const EMAIL_OK = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+  const authMode = () => $("input[name=auth-mode]:checked").value;
+  const isReg = () => authMode() === "register";
+  const touched = new Set();
+
+  function fieldMsg(id, msg, ok = false) {
+    const f = $(`#${id}`).closest(".field");
+    f.classList.toggle("invalid", !!msg);
+    f.classList.toggle("valid", !msg && ok);
+    $(".field-error", f).textContent = msg || "";
   }
-  function openAuth(reason, then) {
-    afterAuth = then || null;
-    $("#auth-reason").textContent = reason || "Войдите, чтобы сохранять билеты и возвращаться к ним в любой момент.";
+
+  function passwordChecks(pw, email) {
+    const local = (email || "").split("@")[0].toLowerCase();
+    return {
+      len: pw.length >= 8,
+      mix: /[A-Za-zА-Яа-яЁё]/.test(pw) && /\d/.test(pw),
+      email: !pw || !email || (pw.toLowerCase() !== email.toLowerCase() && pw.toLowerCase() !== local),
+    };
+  }
+
+  function passwordScore(pw) {
+    if (!pw) return 0;
+    let score = 0;
+    if (pw.length >= 8) score++;
+    if (pw.length >= 12) score++;
+    if (/[a-zа-яё]/.test(pw) && /[A-ZА-ЯЁ]/.test(pw)) score++;
+    if (/\d/.test(pw)) score++;
+    if (/[^A-Za-zА-Яа-яЁё0-9]/.test(pw)) score++;
+    if (new Set(pw).size < 4 || /^(.)\1+$/.test(pw) || /^(12345|qwerty|йцукен|password|пароль)/i.test(pw)) score = Math.min(score, 1);
+    return Math.min(4, score);
+  }
+
+  function passwordProblem(pw, email) {
+    const c = passwordChecks(pw, email);
+    if (!c.len) return "Не короче 8 символов";
+    if (!c.mix) return "Нужны и буквы, и цифры";
+    if (!c.email) return "Пароль не должен совпадать с почтой";
+    if (new Set(pw).size < 4) return "Слишком простой пароль";
+    return "";
+  }
+
+  function updateStrength() {
+    const pw = $("#auth-password").value;
+    const email = $("#auth-email").value.trim();
+    const box = $("#pw-strength");
+    box.hidden = $("#pw-rules").hidden = !isReg();
+    if (!isReg()) return;
+    const score = passwordScore(pw);
+    const levels = [
+      ["", "var(--border)"],
+      ["Слабый", "var(--err)"],
+      ["Средний", "var(--warn)"],
+      ["Хороший", "#22c55e"],
+      ["Надёжный", "var(--ok)"],
+    ];
+    const [label, color] = levels[score];
+    $(".strength-bar i", box).style.width = `${(score / 4) * 100}%`;
+    $(".strength-bar i", box).style.background = color;
+    $(".strength-label", box).textContent = pw ? label : "";
+    $(".strength-label", box).style.color = color;
+    const checks = passwordChecks(pw, email);
+    $$("#pw-rules li").forEach((li) => li.classList.toggle("ok", !!pw && checks[li.dataset.rule]));
+  }
+
+  // Проверка полей; show — показывать ли ошибки у нетронутых полей.
+  function validateAuth(show = false) {
+    const reg = isReg();
+    const email = $("#auth-email").value.trim();
+    const pw = $("#auth-password").value;
+    const pw2 = $("#auth-password2").value;
+    const errs = {
+      "auth-email": !email ? "Укажите почту" : !EMAIL_OK.test(email) ? "Похоже, в адресе ошибка" : "",
+      "auth-password": !pw ? "Введите пароль" : reg ? passwordProblem(pw, email) : "",
+      "auth-password2": reg ? (!pw2 ? "Повторите пароль" : pw2 !== pw ? "Пароли не совпадают" : "") : "",
+      "auth-name": reg && $("#auth-name").value.trim().length > 100 ? "Слишком длинное имя" : "",
+    };
+    for (const [id, msg] of Object.entries(errs)) {
+      const visible = show || touched.has(id);
+      fieldMsg(id, visible ? msg : "", visible && !msg && !!$(`#${id}`).value && reg);
+    }
+    updateStrength();
+    return Object.values(errs).every((m) => !m);
+  }
+
+  function syncAuthMode() {
+    const reg = isReg();
+    $$("#auth-form [data-reg]").forEach((n) => (n.hidden = !reg));
+    $$("#auth-form [data-login]").forEach((n) => (n.hidden = reg));
+    $("#auth-title").textContent = reg ? "Регистрация" : "Вход в личный кабинет";
+    $("#auth-reason").textContent =
+      authReason ||
+      (reg
+        ? "Создайте аккаунт — сформированные билеты будут сохраняться в личном кабинете."
+        : "Войдите, чтобы сохранять билеты и возвращаться к ним в любой момент.");
+    $("#auth-submit").textContent = reg ? "Создать аккаунт" : "Войти";
+    $("#auth-password").autocomplete = reg ? "new-password" : "current-password";
+    $("#auth-switch").innerHTML = reg
+      ? 'Уже есть аккаунт? <button type="button" class="link-btn" data-switch="login">Войти</button>'
+      : 'Нет аккаунта? <button type="button" class="link-btn" data-switch="register">Зарегистрироваться</button>';
     $("#auth-error").hidden = true;
+    touched.clear();
+    validateAuth(false);
+  }
+
+  function openAuth(reason, then, mode) {
+    afterAuth = then || null;
+    authReason = reason || "";
+    $(`input[name=auth-mode][value=${mode === "register" ? "register" : "login"}]`).checked = true;
     syncAuthMode();
     const d = $("#auth-dialog");
     if (!d.open) d.showModal();
-    $("#auth-email").focus();
+    (isReg() ? $("#auth-name") : $("#auth-email")).focus();
   }
+
   $$("input[name=auth-mode]").forEach((r) => r.addEventListener("change", syncAuthMode));
+  $("#auth-switch").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-switch]");
+    if (!b) return;
+    $(`input[name=auth-mode][value=${b.dataset.switch}]`).checked = true;
+    syncAuthMode();
+  });
+  for (const id of ["auth-name", "auth-email", "auth-password", "auth-password2"]) {
+    const input = $(`#${id}`);
+    input.addEventListener("input", () => { $("#auth-error").hidden = true; validateAuth(false); });
+    input.addEventListener("blur", () => { if (input.value) touched.add(id); validateAuth(false); });
+  }
+
+  // Показ/скрытие пароля
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest(".pw-eye");
+    if (!b) return;
+    const input = $(`#${b.dataset.eye}`);
+    const show = input.type === "password";
+    input.type = show ? "text" : "password";
+    b.classList.toggle("on", show);
+    b.title = show ? "Скрыть пароль" : "Показать пароль";
+    b.setAttribute("aria-label", b.title);
+    input.focus();
+  });
+
+  // Предупреждение о Caps Lock
+  document.addEventListener("keyup", (e) => {
+    if (!e.getModifierState || !e.target.matches?.("#auth-form input[type=password], #auth-form input.pw")) return;
+    $("#caps-warn").hidden = !e.getModifierState("CapsLock");
+  });
+
   $("#auth-form").addEventListener("submit", async (e) => {
     e.preventDefault();
-    const reg = authMode() === "register";
-    const body = { email: $("#auth-email").value.trim(), password: $("#auth-password").value };
-    if (reg) body.name = $("#auth-name").value.trim();
-    const err = $("#auth-error");
-    if (!body.email || !body.password) {
-      err.textContent = "Заполните почту и пароль.";
-      err.hidden = false;
+    const reg = isReg();
+    ["auth-email", "auth-password", "auth-password2"].forEach((id) => touched.add(id));
+    if (!validateAuth(true)) {
+      $("#auth-form .field.invalid input")?.focus();
       return;
     }
+    const body = { email: $("#auth-email").value.trim(), password: $("#auth-password").value };
+    if (reg) body.name = $("#auth-name").value.trim();
+    else body.remember = $("#auth-remember").checked;
+    const err = $("#auth-error");
     const btn = $("#auth-submit");
     btn.disabled = true;
+    btn.textContent = reg ? "Создаём аккаунт…" : "Входим…";
     try {
       const res = await api(`/api/auth/${reg ? "register" : "login"}`, {
         method: "POST",
@@ -1095,17 +1234,106 @@
       });
       const { user } = await res.json();
       setUser(user);
-      $("#auth-password").value = "";
+      for (const id of ["auth-password", "auth-password2"]) $(`#${id}`).value = "";
       $("#auth-dialog").close();
-      toast(reg ? "Регистрация прошла успешно" : `Добро пожаловать, ${user.name || user.email}`);
+      toast(reg ? `Аккаунт создан. Добро пожаловать${user.name ? ", " + user.name : ""}!` : `С возвращением, ${user.name || user.email}`);
       const next = afterAuth;
       afterAuth = null;
       if (next) next();
     } catch (ex) {
       err.textContent = ex.message;
       err.hidden = false;
+      if (/уже зарегистрирован/i.test(ex.message)) {
+        err.innerHTML = `${escapeHtml(ex.message)} <button type="button" class="link-btn" id="goto-login">Войти</button>`;
+        $("#goto-login").onclick = () => {
+          $("input[name=auth-mode][value=login]").checked = true;
+          syncAuthMode();
+          $("#auth-password").focus();
+        };
+      }
     } finally {
       btn.disabled = false;
+      btn.textContent = isReg() ? "Создать аккаунт" : "Войти";
+    }
+  });
+
+  // ---- профиль
+  function showCabTab(tab) {
+    $$(".cab-tabs .tab").forEach((t) => t.classList.toggle("active", t.dataset.cab === tab));
+    $$(".cab-pane").forEach((p) => (p.hidden = p.dataset.pane !== tab));
+    if (tab === "profile") fillProfile();
+  }
+  $$(".cab-tabs .tab").forEach((t) => t.addEventListener("click", () => showCabTab(t.dataset.cab)));
+
+  function fillProfile() {
+    const u = state.user;
+    if (!u) return;
+    $("#profile-name").value = u.name || "";
+    $("#profile-email").value = u.email;
+    $("#profile-since").textContent = u.createdAt ? `Аккаунт создан ${fmtDate(u.createdAt)}` : "";
+    for (const id of ["pw-current", "pw-new", "pw-new2", "del-password"]) {
+      $(`#${id}`).value = "";
+      fieldMsg(id, "");
+    }
+    $("#password-error").hidden = $("#delete-error").hidden = true;
+  }
+
+  $("#profile-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    try {
+      const { user } = await (await api("/api/auth/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: $("#profile-name").value.trim() }),
+      })).json();
+      setUser({ ...state.user, ...user });
+      $("#cab-user").textContent = user.name ? `${user.name} · ${user.email}` : user.email;
+      toast("Имя сохранено");
+    } catch (err) { toast(err.message, true); }
+  });
+
+  $("#password-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const cur = $("#pw-current").value, pw = $("#pw-new").value, pw2 = $("#pw-new2").value;
+    const problem = passwordProblem(pw, state.user.email);
+    fieldMsg("pw-current", cur ? "" : "Введите текущий пароль");
+    fieldMsg("pw-new", !pw ? "Введите новый пароль" : problem);
+    fieldMsg("pw-new2", pw2 !== pw ? "Пароли не совпадают" : "");
+    if (!cur || !pw || problem || pw !== pw2) return;
+    const errBox = $("#password-error");
+    try {
+      await api("/api/auth/password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ current: cur, new: pw }),
+      });
+      fillProfile();
+      toast("Пароль изменён");
+    } catch (err) {
+      errBox.textContent = err.message;
+      errBox.hidden = false;
+    }
+  });
+
+  $("#delete-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const pw = $("#del-password").value;
+    fieldMsg("del-password", pw ? "" : "Введите пароль");
+    if (!pw) return;
+    if (!confirm("Удалить аккаунт и все сохранённые наборы билетов? Отменить это действие нельзя.")) return;
+    try {
+      await api("/api/auth/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: pw }),
+      });
+      setUser(null);
+      $("#cabinet-dialog").close();
+      toast("Аккаунт удалён");
+    } catch (err) {
+      const box = $("#delete-error");
+      box.textContent = err.message;
+      box.hidden = false;
     }
   });
 
@@ -1194,6 +1422,7 @@
   async function openCabinet() {
     if (!state.user) return openAuth(null, openCabinet);
     $("#cab-user").textContent = state.user.name ? `${state.user.name} · ${state.user.email}` : state.user.email;
+    showCabTab("sets");
     $("#cab-search").value = "";
     $("#cab-list").innerHTML = `<li class="empty">Загрузка…</li>`;
     $("#cabinet-dialog").showModal();

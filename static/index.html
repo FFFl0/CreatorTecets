@@ -232,7 +232,7 @@
   <dialog id="auth-dialog">
     <form class="dialog auth" id="auth-form" novalidate>
       <header>
-        <h3>Личный кабинет</h3>
+        <h3 id="auth-title">Вход в личный кабинет</h3>
         <button class="icon-btn" type="button" data-close aria-label="Закрыть">✕</button>
       </header>
       <p class="muted small" id="auth-reason">Войдите, чтобы сохранять билеты и возвращаться к ним в любой момент.</p>
@@ -240,21 +240,51 @@
         <label><input type="radio" name="auth-mode" value="login" checked /><span>Вход</span></label>
         <label><input type="radio" name="auth-mode" value="register" /><span>Регистрация</span></label>
       </div>
-      <label class="text-field" id="auth-name-row" hidden>
-        <span>Имя (необязательно)</span>
-        <input type="text" id="auth-name" autocomplete="name" maxlength="100" />
-      </label>
-      <label class="text-field">
-        <span>Электронная почта</span>
-        <input type="email" id="auth-email" autocomplete="email" required maxlength="200" />
-      </label>
-      <label class="text-field">
-        <span>Пароль</span>
-        <input type="password" id="auth-password" autocomplete="current-password" required maxlength="200" />
-        <small class="muted" id="auth-pass-hint" hidden>Не короче 8 символов</small>
+      <div class="text-field field" data-field="auth-name" data-reg hidden>
+        <label for="auth-name">Имя и фамилия <span class="muted">(необязательно)</span></label>
+        <input type="text" id="auth-name" autocomplete="name" maxlength="100" placeholder="Например, Анна Петрова" />
+        <small class="field-error" aria-live="polite"></small>
+      </div>
+      <div class="text-field field" data-field="auth-email">
+        <label for="auth-email">Электронная почта</label>
+        <input type="email" id="auth-email" autocomplete="email" maxlength="200" placeholder="name@example.ru" inputmode="email" />
+        <small class="field-error" aria-live="polite"></small>
+      </div>
+      <div class="text-field field" data-field="auth-password">
+        <label for="auth-password">Пароль</label>
+        <div class="pw-wrap">
+          <input type="password" id="auth-password" autocomplete="current-password" maxlength="200" />
+          <button type="button" class="pw-eye" data-eye="auth-password" aria-label="Показать пароль" title="Показать пароль"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        </div>
+        <div class="strength" id="pw-strength" hidden>
+          <div class="strength-bar"><i></i></div>
+          <span class="strength-label"></span>
+        </div>
+        <ul class="pw-rules" id="pw-rules" hidden>
+          <li data-rule="len">не короче 8 символов</li>
+          <li data-rule="mix">есть буквы и цифры</li>
+          <li data-rule="email">не совпадает с почтой</li>
+        </ul>
+        <small class="field-error" aria-live="polite"></small>
+      </div>
+      <div data-reg hidden>
+      <div class="text-field field" data-field="auth-password2">
+        <label for="auth-password2">Повторите пароль</label>
+        <div class="pw-wrap">
+          <input type="password" id="auth-password2" autocomplete="new-password" maxlength="200" />
+          <button type="button" class="pw-eye" data-eye="auth-password2" aria-label="Показать пароль" title="Показать пароль"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        </div>
+        <small class="field-error" aria-live="polite"></small>
+      </div>
+      </div>
+      <p class="caps-warn" id="caps-warn" hidden>Включён Caps Lock</p>
+      <label class="check-row" data-login>
+        <input type="checkbox" id="auth-remember" checked />
+        <span>Запомнить меня на этом устройстве</span>
       </label>
       <p class="form-error" id="auth-error" role="alert" hidden></p>
       <button class="btn primary" type="submit" id="auth-submit">Войти</button>
+      <p class="muted small center" id="auth-switch"></p>
     </form>
   </dialog>
 
@@ -290,16 +320,81 @@
           <button class="icon-btn" type="button" data-close aria-label="Закрыть">✕</button>
         </div>
       </header>
+      <div class="tabs cab-tabs" role="tablist">
+        <button role="tab" class="tab active" data-cab="sets" type="button">Мои наборы</button>
+        <button role="tab" class="tab" data-cab="profile" type="button">Профиль</button>
+      </div>
+      <section class="cab-pane" data-pane="sets">
       <div class="row gap-s cab-tools">
         <input type="search" id="cab-search" placeholder="Поиск по названию, группе, дисциплине…" autocomplete="off" />
         <button class="btn small secondary" type="button" id="cab-new" title="Начать новый набор билетов">+ Новый набор</button>
       </div>
       <p class="muted small" id="cab-count"></p>
       <ul class="sets" id="cab-list"></ul>
+      </section>
+      <section class="cab-pane profile" data-pane="profile" hidden>
+        <form class="pcard" id="profile-form" novalidate>
+          <h4>Личные данные</h4>
+          <div class="text-field field">
+            <label for="profile-name">Имя и фамилия</label>
+            <input type="text" id="profile-name" maxlength="100" autocomplete="name" />
+          </div>
+          <div class="text-field field">
+            <label for="profile-email">Электронная почта</label>
+            <input type="email" id="profile-email" disabled />
+          </div>
+          <p class="muted small" id="profile-since"></p>
+          <div class="dialog-actions row"><button class="btn small primary" type="submit">Сохранить имя</button></div>
+        </form>
+        <form class="pcard" id="password-form" novalidate>
+          <h4>Смена пароля</h4>
+      <div class="text-field field" data-field="pw-current">
+        <label for="pw-current">Текущий пароль</label>
+        <div class="pw-wrap">
+          <input type="password" id="pw-current" autocomplete="current-password" maxlength="200" />
+          <button type="button" class="pw-eye" data-eye="pw-current" aria-label="Показать пароль" title="Показать пароль"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        </div>
+        <small class="field-error" aria-live="polite"></small>
+      </div>
+      <div class="text-field field" data-field="pw-new">
+        <label for="pw-new">Новый пароль</label>
+        <div class="pw-wrap">
+          <input type="password" id="pw-new" autocomplete="new-password" maxlength="200" />
+          <button type="button" class="pw-eye" data-eye="pw-new" aria-label="Показать пароль" title="Показать пароль"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        </div>
+        <small class="field-error" aria-live="polite"></small>
+      </div>
+      <div class="text-field field" data-field="pw-new2">
+        <label for="pw-new2">Повторите новый пароль</label>
+        <div class="pw-wrap">
+          <input type="password" id="pw-new2" autocomplete="new-password" maxlength="200" />
+          <button type="button" class="pw-eye" data-eye="pw-new2" aria-label="Показать пароль" title="Показать пароль"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        </div>
+        <small class="field-error" aria-live="polite"></small>
+      </div>
+          <p class="muted small">После смены пароля вход на других устройствах будет сброшен.</p>
+          <p class="form-error" id="password-error" role="alert" hidden></p>
+          <div class="dialog-actions row"><button class="btn small primary" type="submit">Изменить пароль</button></div>
+        </form>
+        <form class="pcard danger-zone" id="delete-form" novalidate>
+          <h4>Удаление аккаунта</h4>
+          <p class="muted small">Аккаунт и все сохранённые наборы билетов будут удалены без возможности восстановления.</p>
+      <div class="text-field field" data-field="del-password">
+        <label for="del-password">Пароль для подтверждения</label>
+        <div class="pw-wrap">
+          <input type="password" id="del-password" autocomplete="current-password" maxlength="200" />
+          <button type="button" class="pw-eye" data-eye="del-password" aria-label="Показать пароль" title="Показать пароль"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        </div>
+        <small class="field-error" aria-live="polite"></small>
+      </div>
+          <p class="form-error" id="delete-error" role="alert" hidden></p>
+          <div class="dialog-actions row"><button class="btn small danger-btn" type="submit">Удалить аккаунт</button></div>
+        </form>
+      </section>
     </div>
   </dialog>
 
-  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <div class="toast" id="toast" role="status" aria-live="polite" popover="manual"></div>
   <div class="busy" id="busy" hidden><div class="spinner"></div><span id="busy-text">Формирование…</span></div>
 
   <script src="app.js"></script>

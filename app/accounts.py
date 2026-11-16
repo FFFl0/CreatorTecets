@@ -120,9 +120,23 @@ def _token_hash(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
-def start_session(response: Response, request: Request, user_id: int) -> None:
+def password_problem(password: str, email: str = "") -> str | None:
+    """Возвращает текст ошибки, если пароль слишком простой."""
+    if len(password) < 8:
+        return "Пароль должен быть не короче 8 символов."
+    if not re.search(r"[A-Za-zА-Яа-яЁё]", password) or not re.search(r"\d", password):
+        return "Пароль должен содержать хотя бы одну букву и одну цифру."
+    if email and password.lower() in (email.lower(), email.split("@")[0].lower()):
+        return "Пароль не должен совпадать с почтой."
+    if len(set(password)) < 4:
+        return "Пароль слишком простой — используйте разные символы."
+    return None
+
+
+def start_session(response: Response, request: Request, user_id: int, remember: bool = True) -> None:
     token = secrets.token_urlsafe(32)
-    expires = datetime.now(timezone.utc) + timedelta(days=SESSION_DAYS)
+    # Без «Запомнить меня» сессия живёт до закрытия браузера (и не дольше суток на сервере).
+    expires = datetime.now(timezone.utc) + (timedelta(days=SESSION_DAYS) if remember else timedelta(days=1))
     with connect() as con:
         con.execute("DELETE FROM sessions WHERE expires_at < ?", (now(),))
         con.execute(
@@ -132,7 +146,7 @@ def start_session(response: Response, request: Request, user_id: int) -> None:
     response.set_cookie(
         COOKIE,
         token,
-        max_age=SESSION_DAYS * 86400,
+        max_age=SESSION_DAYS * 86400 if remember else None,
         httponly=True,
         samesite="lax",
         secure=request.url.scheme == "https",
@@ -186,6 +200,20 @@ class RegisterIn(BaseModel):
 class LoginIn(BaseModel):
     email: str = Field(max_length=200)
     password: str = Field(max_length=200)
+    remember: bool = True
+
+
+class ProfileIn(BaseModel):
+    name: str = Field(default="", max_length=100)
+
+
+class PasswordIn(BaseModel):
+    current: str = Field(max_length=200)
+    new: str = Field(max_length=200)
+
+
+class DeleteIn(BaseModel):
+    password: str = Field(max_length=200)
 
 
 def _public(user: dict) -> dict:
@@ -197,20 +225,22 @@ def register(body: RegisterIn, request: Request, response: Response) -> dict:
     email = body.email.strip().lower()
     if not EMAIL_RE.match(email):
         raise HTTPException(422, "Укажите корректный адрес электронной почты.")
-    if len(body.password) < 8:
-        raise HTTPException(422, "Пароль должен быть не короче 8 символов.")
+    problem = password_problem(body.password, email)
+    if problem:
+        raise HTTPException(422, problem)
+    name = re.sub(r"\s+", " ", body.name).strip()
     created = now()
     try:
         with connect() as con:
             cur = con.execute(
                 "INSERT INTO users(email, name, password_hash, created_at) VALUES (?, ?, ?, ?)",
-                (email, body.name.strip(), hash_password(body.password), created),
+                (email, name, hash_password(body.password), created),
             )
             user_id = cur.lastrowid
     except sqlite3.IntegrityError as exc:
         raise HTTPException(409, "Пользователь с такой почтой уже зарегистрирован.") from exc
     start_session(response, request, user_id)
-    return {"user": _public({"id": user_id, "email": email, "name": body.name.strip(), "created_at": created})}
+    return {"user": _public({"id": user_id, "email": email, "name": name, "created_at": created})}
 
 
 @router.post("/auth/login")
@@ -223,7 +253,7 @@ def login(body: LoginIn, request: Request, response: Response) -> dict:
         _failures.setdefault(email, []).append(time.time())
         raise HTTPException(401, "Неверная почта или пароль.")
     _failures.pop(email, None)
-    start_session(response, request, row["id"])
+    start_session(response, request, row["id"], body.remember)
     return {"user": _public(dict(row))}
 
 
@@ -233,6 +263,51 @@ def logout(request: Request, response: Response) -> dict:
     if token:
         with connect() as con:
             con.execute("DELETE FROM sessions WHERE token_hash = ?", (_token_hash(token),))
+    response.delete_cookie(COOKIE, path="/")
+    return {"ok": True}
+
+
+@router.patch("/auth/profile")
+def update_profile(body: ProfileIn, user: dict = Depends(require_user)) -> dict:
+    name = re.sub(r"\s+", " ", body.name).strip()
+    with connect() as con:
+        con.execute("UPDATE users SET name = ? WHERE id = ?", (name, user["id"]))
+    return {"user": _public({**user, "name": name})}
+
+
+def _check_password(user: dict, password: str) -> None:
+    key = f"user:{user['id']}"
+    _check_throttle(key)
+    with connect() as con:
+        stored = con.execute("SELECT password_hash FROM users WHERE id = ?", (user["id"],)).fetchone()[0]
+    if not verify_password(password, stored):
+        _failures.setdefault(key, []).append(time.time())
+        raise HTTPException(403, "Неверный текущий пароль.")
+
+
+@router.post("/auth/password")
+def change_password(body: PasswordIn, request: Request, user: dict = Depends(require_user)) -> dict:
+    _check_password(user, body.current)
+    problem = password_problem(body.new, user["email"])
+    if problem:
+        raise HTTPException(422, problem)
+    if body.new == body.current:
+        raise HTTPException(422, "Новый пароль совпадает с текущим.")
+    current_token = _token_hash(request.cookies.get(COOKIE, ""))
+    with connect() as con:
+        con.execute("UPDATE users SET password_hash = ? WHERE id = ?", (hash_password(body.new), user["id"]))
+        # Выходим на всех остальных устройствах.
+        con.execute("DELETE FROM sessions WHERE user_id = ? AND token_hash != ?", (user["id"], current_token))
+    return {"ok": True}
+
+
+@router.post("/auth/delete")
+def delete_account(body: DeleteIn, response: Response, user: dict = Depends(require_user)) -> dict:
+    _check_password(user, body.password)
+    with connect() as con:
+        con.execute("DELETE FROM ticket_sets WHERE user_id = ?", (user["id"],))
+        con.execute("DELETE FROM sessions WHERE user_id = ?", (user["id"],))
+        con.execute("DELETE FROM users WHERE id = ?", (user["id"],))
     response.delete_cookie(COOKIE, path="/")
     return {"ok": True}
 

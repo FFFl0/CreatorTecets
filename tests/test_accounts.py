@@ -102,3 +102,46 @@ def test_bad_set_payload():
     c, _ = new_client()
     bad = json.dumps({"title": "x", "data": {"tickets": []}})
     assert c.post("/api/sets", data={"payload": bad}).status_code == 422
+
+
+def test_password_rules():
+    c = TestClient(app)
+    for pw in ("abcdefgh", "12345678", "a1a1a1a1"):
+        r = c.post("/api/auth/register", json={"email": f"{uuid.uuid4().hex[:6]}@ex.ru", "password": pw})
+        assert r.status_code == 422, pw
+    email = f"{uuid.uuid4().hex[:6]}1@ex.ru"
+    r = c.post("/api/auth/register", json={"email": email, "password": email.split("@")[0]})
+    assert r.status_code == 422
+
+
+def test_remember_me_cookie():
+    c, email = new_client()
+    c.post("/api/auth/logout")
+    r = c.post("/api/auth/login", json={"email": email, "password": "secret123", "remember": False})
+    assert r.status_code == 200 and "max-age" not in r.headers["set-cookie"].lower()
+    r = c.post("/api/auth/login", json={"email": email, "password": "secret123"})
+    assert "max-age" in r.headers["set-cookie"].lower()
+
+
+def test_profile_password_and_delete():
+    c, email = new_client()
+    other = TestClient(app)
+    other.post("/api/auth/login", json={"email": email, "password": "secret123"})
+    assert c.patch("/api/auth/profile", json={"name": "  Анна   Петрова "}).json()["user"]["name"] == "Анна Петрова"
+
+    assert c.post("/api/auth/password", json={"current": "wrong", "new": "newpass456"}).status_code == 403
+    assert c.post("/api/auth/password", json={"current": "secret123", "new": "short"}).status_code == 422
+    assert c.post("/api/auth/password", json={"current": "secret123", "new": "newpass456"}).status_code == 200
+    # Текущая сессия жива, другие устройства разлогинены
+    assert c.get("/api/auth/me").json()["user"]["email"] == email
+    assert other.get("/api/auth/me").json()["user"] is None
+    assert TestClient(app).post("/api/auth/login", json={"email": email, "password": "newpass456"}).status_code == 200
+
+    sid = c.post("/api/sets", data={"payload": set_payload()}).json()["set"]["id"]
+    assert c.post("/api/auth/delete", json={"password": "secret123"}).status_code == 403
+    assert c.post("/api/auth/delete", json={"password": "newpass456"}).status_code == 200
+    assert c.get("/api/auth/me").json()["user"] is None
+    assert TestClient(app).post("/api/auth/login", json={"email": email, "password": "newpass456"}).status_code == 401
+    from app.accounts import connect
+    with connect() as con:
+        assert con.execute("SELECT COUNT(*) FROM ticket_sets WHERE id = ?", (sid,)).fetchone()[0] == 0
