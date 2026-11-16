@@ -77,3 +77,15 @@ docker run -p 8000:8000 creatortecets
 pip install pytest httpx
 python -m pytest
 ```
+
+## Развёртывание на своём сервере (Docker Compose)
+
+```bash
+git clone https://github.com/FFFl0/CreatorTecets.git
+cd CreatorTecets
+git checkout ccr-cc297434-iob7x1
+docker compose up -d --build
+```
+
+Приложение будет доступно по адресу `http://<IP сервера>:8000` и перезапускается автоматически.
+Обновление: `git pull && docker compose up -d --build`.
