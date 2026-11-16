@@ -58,6 +58,11 @@ def site_config() -> dict:
             "bottom": _env_block("YANDEX_RTB_BOTTOM"),
         },
         "metrika": int(metrika) if metrika.isdigit() else None,
+        "operator": {
+            "name": os.environ.get("SITE_OPERATOR", "").strip()[:300] or None,
+            "email": os.environ.get("SITE_CONTACT_EMAIL", "").strip()[:200] or None,
+            "site": os.environ.get("DOMAIN", "").strip()[:200] or None,
+        },
     }
 
 

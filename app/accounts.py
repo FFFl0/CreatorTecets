@@ -84,6 +84,13 @@ CREATE INDEX IF NOT EXISTS ix_submissions_status ON template_submissions(status,
 """
 
 
+def _migrate(con: sqlite3.Connection) -> None:
+    """Добавляет новые столбцы в базы, созданные старыми версиями."""
+    cols = {r[1] for r in con.execute("PRAGMA table_info(users)")}
+    if "consent_at" not in cols:
+        con.execute("ALTER TABLE users ADD COLUMN consent_at TEXT")
+
+
 @contextmanager
 def connect():
     path = db_path()
@@ -95,6 +102,7 @@ def connect():
                 with sqlite3.connect(path) as con:
                     con.execute("PRAGMA journal_mode=WAL")
                     con.executescript(SCHEMA)
+                    _migrate(con)
                 _initialized.add(key)
     con = sqlite3.connect(path, timeout=10)
     con.row_factory = sqlite3.Row
@@ -209,6 +217,7 @@ class RegisterIn(BaseModel):
     email: str = Field(max_length=200)
     password: str = Field(max_length=200)
     name: str = Field(default="", max_length=100)
+    consent: bool = False
 
 
 class LoginIn(BaseModel):
@@ -268,13 +277,15 @@ def register(body: RegisterIn, request: Request, response: Response) -> dict:
     problem = password_problem(body.password, email)
     if problem:
         raise HTTPException(422, problem)
+    if not body.consent:
+        raise HTTPException(422, "Для регистрации нужно согласие на обработку персональных данных.")
     name = re.sub(r"\s+", " ", body.name).strip()
     created = now()
     try:
         with connect() as con:
             cur = con.execute(
-                "INSERT INTO users(email, name, password_hash, created_at) VALUES (?, ?, ?, ?)",
-                (email, name, hash_password(body.password), created),
+                "INSERT INTO users(email, name, password_hash, created_at, consent_at) VALUES (?, ?, ?, ?, ?)",
+                (email, name, hash_password(body.password), created, created),
             )
             user_id = cur.lastrowid
     except sqlite3.IntegrityError as exc:

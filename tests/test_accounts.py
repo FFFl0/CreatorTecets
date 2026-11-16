@@ -11,7 +11,7 @@ from app.main import DEFAULT_TEMPLATE, app
 def new_client(email=None, password="secret123"):
     c = TestClient(app)
     email = email or f"user-{uuid.uuid4().hex[:8]}@example.com"
-    r = c.post("/api/auth/register", json={"email": email, "password": password, "name": "Тест"})
+    r = c.post("/api/auth/register", json={"email": email, "password": password, "name": "Тест", "consent": True})
     assert r.status_code == 200, r.text
     return c, email
 
@@ -31,7 +31,7 @@ def test_register_login_logout():
     c, email = new_client()
     assert c.get("/api/auth/me").json()["user"]["email"] == email
     # Повторная регистрация с той же почтой
-    assert c.post("/api/auth/register", json={"email": email.upper(), "password": "secret123"}).status_code == 409
+    assert c.post("/api/auth/register", json={"email": email.upper(), "password": "secret123", "consent": True}).status_code == 409
     c.post("/api/auth/logout")
     assert c.get("/api/auth/me").json()["user"] is None
     assert c.post("/api/auth/login", json={"email": email, "password": "wrong-pass"}).status_code == 401
@@ -41,8 +41,8 @@ def test_register_login_logout():
 
 def test_validation():
     c = TestClient(app)
-    assert c.post("/api/auth/register", json={"email": "bad", "password": "secret123"}).status_code == 422
-    assert c.post("/api/auth/register", json={"email": "a@b.ru", "password": "short"}).status_code == 422
+    assert c.post("/api/auth/register", json={"email": "bad", "password": "secret123", "consent": True}).status_code == 422
+    assert c.post("/api/auth/register", json={"email": "a@b.ru", "password": "short", "consent": True}).status_code == 422
 
 
 def test_sets_crud_and_export():
@@ -107,10 +107,10 @@ def test_bad_set_payload():
 def test_password_rules():
     c = TestClient(app)
     for pw in ("abcdefgh", "12345678", "a1a1a1a1"):
-        r = c.post("/api/auth/register", json={"email": f"{uuid.uuid4().hex[:6]}@ex.ru", "password": pw})
+        r = c.post("/api/auth/register", json={"email": f"{uuid.uuid4().hex[:6]}@ex.ru", "password": pw, "consent": True})
         assert r.status_code == 422, pw
     email = f"{uuid.uuid4().hex[:6]}1@ex.ru"
-    r = c.post("/api/auth/register", json={"email": email, "password": email.split("@")[0]})
+    r = c.post("/api/auth/register", json={"email": email, "password": email.split("@")[0], "consent": True})
     assert r.status_code == 422
 
 
@@ -145,3 +145,9 @@ def test_profile_password_and_delete():
     from app.accounts import connect
     with connect() as con:
         assert con.execute("SELECT COUNT(*) FROM ticket_sets WHERE id = ?", (sid,)).fetchone()[0] == 0
+
+
+def test_register_requires_consent():
+    c = TestClient(app)
+    r = c.post("/api/auth/register", json={"email": f"{uuid.uuid4().hex[:6]}@ex.ru", "password": "secret123"})
+    assert r.status_code == 422 and "согласие" in r.json()["detail"]

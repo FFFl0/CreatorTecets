@@ -15,6 +15,10 @@ services:
       YANDEX_RTB_BOTTOM: ${YANDEX_RTB_BOTTOM:-}
       # Номер счётчика Яндекс Метрики (необязательно)
       YANDEX_METRIKA_ID: ${YANDEX_METRIKA_ID:-}
+      # Для политики конфиденциальности: оператор персональных данных и контактная почта
+      SITE_OPERATOR: ${SITE_OPERATOR:-}
+      SITE_CONTACT_EMAIL: ${SITE_CONTACT_EMAIL:-}
+      DOMAIN: ${DOMAIN:-}
     volumes:
       - creatortecets-data:/data   # пользователи и сохранённые билеты
     restart: unless-stopped

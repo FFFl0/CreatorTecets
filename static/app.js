@@ -1150,10 +1150,12 @@
       "auth-password": !pw ? "Введите пароль" : reg ? passwordProblem(pw, email) : "",
       "auth-password2": reg ? (!pw2 ? "Повторите пароль" : pw2 !== pw ? "Пароли не совпадают" : "") : "",
       "auth-name": reg && $("#auth-name").value.trim().length > 100 ? "Слишком длинное имя" : "",
+      "auth-consent": reg && !$("#auth-consent").checked ? "Без согласия регистрация невозможна" : "",
     };
     for (const [id, msg] of Object.entries(errs)) {
       const visible = show || touched.has(id);
-      fieldMsg(id, visible ? msg : "", visible && !msg && !!$(`#${id}`).value && reg);
+      const filled = $(`#${id}`).type === "checkbox" ? $(`#${id}`).checked : !!$(`#${id}`).value;
+      fieldMsg(id, visible ? msg : "", visible && !msg && filled && reg && id !== "auth-consent");
     }
     updateStrength();
     return Object.values(errs).every((m) => !m);
@@ -1196,6 +1198,7 @@
     $(`input[name=auth-mode][value=${b.dataset.switch}]`).checked = true;
     syncAuthMode();
   });
+  $("#auth-consent").addEventListener("change", () => { touched.add("auth-consent"); validateAuth(false); });
   for (const id of ["auth-name", "auth-email", "auth-password", "auth-password2"]) {
     const input = $(`#${id}`);
     input.addEventListener("input", () => { $("#auth-error").hidden = true; validateAuth(false); });
@@ -1224,14 +1227,16 @@
   $("#auth-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const reg = isReg();
-    ["auth-email", "auth-password", "auth-password2"].forEach((id) => touched.add(id));
+    ["auth-email", "auth-password", "auth-password2", "auth-consent"].forEach((id) => touched.add(id));
     if (!validateAuth(true)) {
       $("#auth-form .field.invalid input")?.focus();
       return;
     }
     const body = { email: $("#auth-email").value.trim(), password: $("#auth-password").value };
-    if (reg) body.name = $("#auth-name").value.trim();
-    else body.remember = $("#auth-remember").checked;
+    if (reg) {
+      body.name = $("#auth-name").value.trim();
+      body.consent = $("#auth-consent").checked;
+    } else body.remember = $("#auth-remember").checked;
     const err = $("#auth-error");
     const btn = $("#auth-submit");
     btn.disabled = true;
@@ -1875,14 +1880,44 @@
     window.ym(id, "init", { clickmap: true, trackLinks: true, accurateTrackBounce: true });
   }
 
+  // ---- согласие на cookie
+  const CONSENT_KEY = "creatortecets:cookie-consent";
+  let siteConfig = null;
+  let thirdPartyLoaded = false;
+
+  function getConsent() {
+    try { return localStorage.getItem(CONSENT_KEY); } catch { return null; }
+  }
+
+  // Сторонние cookie (Метрика, реклама) — только после согласия «Принять все».
+  function applyConsent() {
+    const consent = getConsent();
+    const hasThirdParty = !!(siteConfig && (siteConfig.metrika || siteConfig.ads?.sidebar || siteConfig.ads?.bottom));
+    $("#cookie-banner").hidden = !!consent;
+    if (consent === "all" && hasThirdParty && !thirdPartyLoaded) {
+      thirdPartyLoaded = true;
+      setupMetrika(siteConfig.metrika);
+      setupAds(siteConfig.ads);
+    }
+  }
+
+  function setConsent(value) {
+    const before = getConsent();
+    try { localStorage.setItem(CONSENT_KEY, value); } catch { /* */ }
+    // Отзыв согласия: перезагружаем страницу, чтобы выгрузить сторонние скрипты.
+    if (before === "all" && value !== "all" && thirdPartyLoaded) return location.reload();
+    applyConsent();
+  }
+
+  $("#cookie-all").addEventListener("click", () => setConsent("all"));
+  $("#cookie-necessary").addEventListener("click", () => setConsent("necessary"));
+  $("#cookie-settings").addEventListener("click", () => ($("#cookie-banner").hidden = false));
+  $("#footer-year").textContent = new Date().getFullYear();
+
   fetch("/api/config")
     .then((r) => (r.ok ? r.json() : null))
-    .then((cfg) => {
-      if (!cfg) return;
-      setupMetrika(cfg.metrika);
-      setupAds(cfg.ads);
-    })
-    .catch(() => { /* без рекламы */ });
+    .then((cfg) => { siteConfig = cfg; applyConsent(); })
+    .catch(() => applyConsent());
 
   // ------------------------------------------------------------------ init
   (async () => {

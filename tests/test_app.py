@@ -116,9 +116,10 @@ def test_developer_in_footer_is_editable():
 def test_site_config_ads(monkeypatch):
     for k in ("YANDEX_RTB_SIDEBAR", "YANDEX_RTB_BOTTOM", "YANDEX_METRIKA_ID"):
         monkeypatch.delenv(k, raising=False)
-    assert client.get("/api/config").json() == {"ads": {"sidebar": None, "bottom": None}, "metrika": None}
+    cfg = client.get("/api/config").json()
+    assert cfg["ads"] == {"sidebar": None, "bottom": None} and cfg["metrika"] is None
     monkeypatch.setenv("YANDEX_RTB_SIDEBAR", "R-A-1234567-1")
     monkeypatch.setenv("YANDEX_RTB_BOTTOM", "<script>")  # мусор игнорируется
     monkeypatch.setenv("YANDEX_METRIKA_ID", "98765")
     cfg = client.get("/api/config").json()
-    assert cfg == {"ads": {"sidebar": "R-A-1234567-1", "bottom": None}, "metrika": 98765}
+    assert cfg["ads"] == {"sidebar": "R-A-1234567-1", "bottom": None} and cfg["metrika"] == 98765

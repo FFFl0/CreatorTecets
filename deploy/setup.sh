@@ -3,6 +3,7 @@
 #   Без домена:  sudo bash setup.sh
 #   С доменом:   sudo DOMAIN=tickets.example.ru bash setup.sh
 #   Администратор: добавьте ADMIN_EMAILS=you@example.ru (иначе — первый зарегистрированный)
+#   Политика конфиденциальности: SITE_OPERATOR="Иванов Иван Иванович" SITE_CONTACT_EMAIL=pd@example.ru
 #   Реклама РСЯ:   YANDEX_RTB_SIDEBAR=R-A-…-1 YANDEX_RTB_BOTTOM=R-A-…-2 YANDEX_METRIKA_ID=…
 set -euo pipefail
 
@@ -38,8 +39,8 @@ cd "$DIR"
 
 echo "==> Сборка и запуск (первый раз — несколько минут)"
 : > .env
-for var in ADMIN_EMAILS YANDEX_RTB_SIDEBAR YANDEX_RTB_BOTTOM YANDEX_METRIKA_ID; do
-  [ -n "${!var:-}" ] && echo "$var=${!var}" >> .env
+for var in ADMIN_EMAILS YANDEX_RTB_SIDEBAR YANDEX_RTB_BOTTOM YANDEX_METRIKA_ID SITE_OPERATOR SITE_CONTACT_EMAIL; do
+  [ -n "${!var:-}" ] && printf '%s="%s"\n' "$var" "${!var}" >> .env
 done
 if [ -n "${DOMAIN:-}" ]; then
   echo "DOMAIN=$DOMAIN" >> .env

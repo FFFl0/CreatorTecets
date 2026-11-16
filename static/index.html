@@ -242,6 +242,23 @@
     </form>
   </dialog>
 
+  <footer class="site-footer">
+    <span>© <span id="footer-year"></span> CreatorTecets</span>
+    <a href="/privacy.html">Политика конфиденциальности</a>
+    <button type="button" class="link-btn" id="cookie-settings">Настройки cookie</button>
+  </footer>
+
+  <div class="cookie-banner" id="cookie-banner" role="dialog" aria-live="polite" aria-label="Использование cookie" hidden>
+    <div class="cookie-text">
+      <strong>Мы используем cookie</strong>
+      <p>Необходимые cookie нужны для входа в личный кабинет и сохранения настроек. С вашего согласия мы также используем cookie сервисов Яндекса (Метрика и Рекламная сеть) для статистики и показа рекламы. Подробнее — в <a href="/privacy.html">Политике конфиденциальности</a>.</p>
+    </div>
+    <div class="cookie-actions">
+      <button class="btn ghost" type="button" id="cookie-necessary">Только необходимые</button>
+      <button class="btn primary" type="button" id="cookie-all">Принять все</button>
+    </div>
+  </div>
+
   <!-- Вход / регистрация -->
   <dialog id="auth-dialog">
     <form class="dialog auth" id="auth-form" novalidate>
@@ -292,6 +309,13 @@
       </div>
       </div>
       <p class="caps-warn" id="caps-warn" hidden>Включён Caps Lock</p>
+      <div class="field" data-field="auth-consent" data-reg hidden>
+        <label class="check-row align-top">
+          <input type="checkbox" id="auth-consent" />
+          <span>Я принимаю <a href="/privacy.html" target="_blank" rel="noopener">Политику конфиденциальности</a> и даю согласие на обработку моих персональных данных</span>
+        </label>
+        <small class="field-error" aria-live="polite"></small>
+      </div>
       <label class="check-row" data-login>
         <input type="checkbox" id="auth-remember" checked />
         <span>Запомнить меня на этом устройстве</span>
