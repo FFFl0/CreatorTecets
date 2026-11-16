@@ -22,6 +22,12 @@
 
 ## Запуск
 
+**Windows:** дважды щёлкните `start.bat` — он установит зависимости, запустит сервер и откроет браузер.
+Нужен Python 3.10+ (при установке отметьте «Add python.exe to PATH»), для PDF — LibreOffice.
+Вручную: `py -m pip install -r requirements.txt`, затем `py -m uvicorn app.main:app`.
+
+**Linux / macOS:**
+
 ```bash
 pip install -r requirements.txt
 uvicorn app.main:app --reload

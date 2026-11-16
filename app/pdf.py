@@ -16,8 +16,18 @@ class PdfError(RuntimeError):
     pass
 
 
+_STANDARD_PATHS = [
+    r"C:\Program Files\LibreOffice\program\soffice.exe",
+    r"C:\Program Files (x86)\LibreOffice\program\soffice.exe",
+    "/Applications/LibreOffice.app/Contents/MacOS/soffice",
+]
+
+
 def soffice_path() -> str | None:
-    return os.environ.get("SOFFICE_PATH") or shutil.which("soffice") or shutil.which("libreoffice")
+    found = os.environ.get("SOFFICE_PATH") or shutil.which("soffice") or shutil.which("libreoffice")
+    if found:
+        return found
+    return next((p for p in _STANDARD_PATHS if os.path.isfile(p)), None)
 
 
 def docx_to_pdf(data: bytes, timeout: int = 180) -> bytes:
