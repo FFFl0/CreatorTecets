@@ -5,4 +5,11 @@ services:
     container_name: creatortecets
     ports:
       - "8000:8000"
+    environment:
+      DB_PATH: /data/creatortecets.db
+    volumes:
+      - creatortecets-data:/data   # пользователи и сохранённые билеты
     restart: unless-stopped
+
+volumes:
+  creatortecets-data:

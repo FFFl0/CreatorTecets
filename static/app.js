@@ -630,7 +630,7 @@
     fd.append("payload", JSON.stringify(exportPayload()));
     fd.append("format", format);
     if (state.templateFile) fd.append("template", state.templateFile);
-    const res = await fetch("/api/export", { method: "POST", body: fd });
+    const res = await fetch("/api/export", { method: "POST", body: fd, credentials: "same-origin" });
     if (!res.ok) throw new Error(await apiError(res));
     return res.blob();
   }
@@ -653,6 +653,7 @@
       const blob = await requestExport(format);
       download(blob, `${exportPayload().filename}.${format}`);
       toast(`Файл ${format.toUpperCase()} сформирован`);
+      if (state.user) autoSave();
     } catch (err) {
       toast(err.message, true);
     } finally {
@@ -719,6 +720,7 @@
           qPractice: el.q.practice.value,
           fields: state.fields,
           seed: state.seed,
+          currentSet: state.currentSet,
         }),
       );
     } catch { /* хранилище недоступно — не критично */ }
@@ -739,6 +741,7 @@
       el.q.practice.value = s.qPractice || "";
       state.fields = s.fields || {};
       if (Number.isFinite(s.seed)) state.seed = s.seed;
+      if (s.currentSet && Number.isFinite(s.currentSet.id)) state.currentSet = s.currentSet;
     } catch { /* игнорируем повреждённые данные */ }
   }
 
@@ -832,6 +835,7 @@
     busy(true, "Анализ шаблона…");
     try {
       await loadTemplate(file);
+      state.templateDirty = true;
       refresh();
       toast("Шаблон загружен");
     } catch (err) {
@@ -843,6 +847,7 @@
   $("#tpl-reset").addEventListener("click", async () => {
     state.fields = {};
     await loadTemplate(null);
+    state.templateDirty = true;
     refresh();
   });
 
@@ -1004,6 +1009,366 @@
     toast(THEME_LABEL[theme]);
   });
 
+  // ------------------------------------------------------- личный кабинет
+  state.user = null;
+  state.currentSet = null; // { id, title }
+  state.templateDirty = false;
+
+  async function api(url, options = {}) {
+    const res = await fetch(url, { credentials: "same-origin", ...options });
+    if (res.status === 401 && !url.startsWith("/api/auth/")) {
+      setUser(null);
+      openAuth("Сессия истекла — войдите снова.");
+      throw new Error("Требуется вход в личный кабинет");
+    }
+    if (!res.ok) throw new Error(await apiError(res));
+    return res;
+  }
+
+  const fmtDate = (iso) => {
+    try {
+      return new Date(iso).toLocaleString("ru-RU", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+    } catch { return iso; }
+  };
+
+  function setUser(user) {
+    state.user = user;
+    const b = $("#btn-account");
+    if (user) {
+      const label = user.name || user.email;
+      b.innerHTML = `<span class="avatar">${escapeHtml(label.trim()[0]?.toUpperCase() || "?")}</span><span>${escapeHtml(label)}</span>`;
+      b.title = "Личный кабинет";
+    } else {
+      b.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><span>Войти</span>`;
+      b.title = "Вход и регистрация";
+      setCurrentSet(null);
+    }
+  }
+
+  function setCurrentSet(set) {
+    state.currentSet = set ? { id: set.id, title: set.title } : null;
+    const chip = $("#current-set");
+    chip.hidden = !set;
+    if (set) chip.innerHTML = `Набор: <b>${escapeHtml(set.title)}</b>`;
+    save();
+  }
+
+  // ---- вход / регистрация
+  let afterAuth = null;
+  function authMode() { return $("input[name=auth-mode]:checked").value; }
+  function syncAuthMode() {
+    const reg = authMode() === "register";
+    $("#auth-name-row").hidden = !reg;
+    $("#auth-pass-hint").hidden = !reg;
+    $("#auth-submit").textContent = reg ? "Зарегистрироваться" : "Войти";
+    $("#auth-password").autocomplete = reg ? "new-password" : "current-password";
+    $("#auth-error").hidden = true;
+  }
+  function openAuth(reason, then) {
+    afterAuth = then || null;
+    $("#auth-reason").textContent = reason || "Войдите, чтобы сохранять билеты и возвращаться к ним в любой момент.";
+    $("#auth-error").hidden = true;
+    syncAuthMode();
+    const d = $("#auth-dialog");
+    if (!d.open) d.showModal();
+    $("#auth-email").focus();
+  }
+  $$("input[name=auth-mode]").forEach((r) => r.addEventListener("change", syncAuthMode));
+  $("#auth-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const reg = authMode() === "register";
+    const body = { email: $("#auth-email").value.trim(), password: $("#auth-password").value };
+    if (reg) body.name = $("#auth-name").value.trim();
+    const err = $("#auth-error");
+    if (!body.email || !body.password) {
+      err.textContent = "Заполните почту и пароль.";
+      err.hidden = false;
+      return;
+    }
+    const btn = $("#auth-submit");
+    btn.disabled = true;
+    try {
+      const res = await api(`/api/auth/${reg ? "register" : "login"}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const { user } = await res.json();
+      setUser(user);
+      $("#auth-password").value = "";
+      $("#auth-dialog").close();
+      toast(reg ? "Регистрация прошла успешно" : `Добро пожаловать, ${user.name || user.email}`);
+      const next = afterAuth;
+      afterAuth = null;
+      if (next) next();
+    } catch (ex) {
+      err.textContent = ex.message;
+      err.hidden = false;
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // ---- данные набора
+  function collectSet() {
+    const p = params();
+    return {
+      params: {
+        count: p.count,
+        theory: p.per.theory,
+        practice: p.per.practice,
+        mode: p.mode,
+        repeat: p.repeat,
+        filename: el.filename.value.trim() || "Экзаменационные билеты",
+      },
+      questions: { theory: el.q.theory.value, practice: el.q.practice.value },
+      fields: state.fields,
+      seed: state.seed,
+      edited: state.edited,
+      tickets: exportPayload().tickets,
+    };
+  }
+
+  function defaultTitle() {
+    const f = state.fields;
+    const parts = [f["Дисциплина"], f["Группа"]].filter((x) => x && x.trim());
+    return (parts.join(" — ") || el.filename.value.trim() || "Экзаменационные билеты").slice(0, 200);
+  }
+
+  async function saveSet({ asNew = false, title } = {}) {
+    const fd = new FormData();
+    const t = (title || state.currentSet?.title || defaultTitle()).trim();
+    fd.append("payload", JSON.stringify({ title: t, data: collectSet() }));
+    const update = state.currentSet && !asNew;
+    if (update) {
+      if (state.templateDirty) fd.append("template_mode", state.templateFile ? "replace" : "default");
+    }
+    if (state.templateFile && (!update || state.templateDirty)) fd.append("template", state.templateFile);
+    const res = await api(update ? `/api/sets/${state.currentSet.id}` : "/api/sets", { method: update ? "PUT" : "POST", body: fd });
+    const { set } = await res.json();
+    state.templateDirty = false;
+    setCurrentSet(set);
+    return set;
+  }
+
+  async function autoSave() {
+    if (!validate()) return;
+    try {
+      const set = await saveSet();
+      toast(`Сохранено в личном кабинете: «${set.title}»`);
+    } catch (err) {
+      toast(`Не удалось сохранить: ${err.message}`, true);
+    }
+  }
+
+  function openSaveDialog() {
+    if (!state.user) return openAuth("Войдите или зарегистрируйтесь, чтобы сохранить билеты.", openSaveDialog);
+    if (!validate()) return toast("Исправьте ошибки в проверке перед сохранением", true);
+    $("#save-title").value = state.currentSet?.title || defaultTitle();
+    $("#save-as-new").hidden = !state.currentSet;
+    $("#save-submit").textContent = state.currentSet ? "Обновить набор" : "Сохранить";
+    $("#save-note").textContent = state.currentSet
+      ? "Набор уже есть в кабинете — изменения будут записаны в него. Можно сохранить и как отдельный новый набор."
+      : "Сохранятся параметры, списки вопросов и сами билеты — вместе с ручными заменами.";
+    $("#save-dialog").showModal();
+    $("#save-title").select();
+  }
+
+  async function submitSave(asNew) {
+    const title = $("#save-title").value.trim();
+    if (!title) return $("#save-title").focus();
+    try {
+      const set = await saveSet({ asNew, title });
+      $("#save-dialog").close();
+      toast(`Набор «${set.title}» сохранён`);
+    } catch (err) {
+      toast(err.message, true);
+    }
+  }
+  $("#save-form").addEventListener("submit", (e) => { e.preventDefault(); submitSave(false); });
+  $("#save-as-new").addEventListener("click", () => submitSave(true));
+  $("#btn-save").addEventListener("click", openSaveDialog);
+
+  // ---- кабинет
+  let cabinetSets = [];
+  async function openCabinet() {
+    if (!state.user) return openAuth(null, openCabinet);
+    $("#cab-user").textContent = state.user.name ? `${state.user.name} · ${state.user.email}` : state.user.email;
+    $("#cab-search").value = "";
+    $("#cab-list").innerHTML = `<li class="empty">Загрузка…</li>`;
+    $("#cabinet-dialog").showModal();
+    try {
+      cabinetSets = (await (await api("/api/sets")).json()).sets;
+      drawCabinet();
+    } catch (err) {
+      $("#cab-list").innerHTML = `<li class="empty">${escapeHtml(err.message)}</li>`;
+    }
+  }
+
+  function drawCabinet() {
+    const needle = normKey($("#cab-search").value);
+    const items = cabinetSets.filter((s) => !needle || normKey([s.title, ...Object.values(s.fields)].join(" ")).includes(needle));
+    $("#cab-count").textContent = cabinetSets.length
+      ? `Сохранено наборов: ${cabinetSets.length}${needle ? ` · найдено: ${items.length}` : ""}`
+      : "";
+    const list = $("#cab-list");
+    if (!cabinetSets.length) {
+      list.innerHTML = `<li class="empty"><div><strong>Здесь пока пусто</strong>Сформируйте билеты и нажмите «Сохранить» — или просто скачайте их: после входа каждый экспорт сохраняется сюда автоматически.</div></li>`;
+      return;
+    }
+    if (!items.length) {
+      list.innerHTML = `<li class="empty">Ничего не найдено</li>`;
+      return;
+    }
+    list.innerHTML = items
+      .map((s) => {
+        const cur = state.currentSet?.id === s.id;
+        const per = [s.theoryPer ? `${s.theoryPer} теор.` : "", s.practicePer ? `${s.practicePer} практ.` : ""].filter(Boolean).join(" + ");
+        const info = [s.fields["Группа"] && `Группа ${s.fields["Группа"]}`, s.fields["Дисциплина"]].filter(Boolean).map(escapeHtml);
+        return `<li class="set ${cur ? "current" : ""}" data-id="${s.id}">
+          <h4><span>${escapeHtml(s.title)}</span>${cur ? '<em class="tag">открыт</em>' : ""}</h4>
+          <div class="meta">
+            <span>${s.ticketCount} ${plural(s.ticketCount, "билет", "билета", "билетов")}${per ? ` · ${per}` : ""}</span>
+            ${info.map((x) => `<span>${x}</span>`).join("")}
+            <span>${s.templateName ? `Шаблон: ${escapeHtml(s.templateName)}` : "Стандартный шаблон"}</span>
+            <span>Изменён ${fmtDate(s.updatedAt)}</span>
+          </div>
+          <div class="actions">
+            <button class="btn small primary" data-act="open" type="button">Открыть</button>
+            <button class="btn small secondary" data-act="docx" type="button" title="Скачать Word">.docx</button>
+            <button class="btn small secondary" data-act="pdf" type="button" title="Скачать PDF">PDF</button>
+            <button class="btn small ghost" data-act="rename" type="button" title="Переименовать">✎</button>
+            <button class="btn small ghost danger" data-act="delete" type="button" title="Удалить">🗑</button>
+          </div>
+        </li>`;
+      })
+      .join("");
+  }
+
+  async function openSet(id) {
+    busy(true, "Открытие набора…");
+    try {
+      const { set } = await (await api(`/api/sets/${id}`)).json();
+      const d = set.data;
+      const p = d.params || {};
+      el.count.value = p.count ?? set.ticketCount;
+      el.theory.value = p.theory ?? 0;
+      el.practice.value = p.practice ?? 0;
+      const mode = $(`input[name=mode][value=${p.mode === "sequential" ? "sequential" : "random"}]`);
+      mode.checked = true;
+      el.repeat.checked = !!p.repeat;
+      el.filename.value = p.filename || set.title;
+      el.q.theory.value = d.questions?.theory || "";
+      el.q.practice.value = d.questions?.practice || "";
+      if (Number.isFinite(d.seed)) state.seed = d.seed;
+      state.fields = { ...(d.fields || {}) };
+      let file = null;
+      if (set.hasTemplate) {
+        const blob = await (await api(`/api/sets/${id}/template`)).blob();
+        file = new File([blob], set.templateName || "template.docx", { type: blob.type });
+      }
+      await loadTemplate(file);
+      state.templateDirty = false;
+      // Восстанавливаем сохранённые билеты как есть, без перераспределения.
+      state.tickets = (d.tickets || []).map((t) => ({
+        number: t.number,
+        theory: (t.theory || []).map((q) => (q ? { text: q, repeat: false } : null)),
+        practice: (t.practice || []).map((q) => (q ? { text: q, repeat: false } : null)),
+      }));
+      markRepeats();
+      state.edited = !!d.edited;
+      markPdfStale();
+      validate();
+      renderPreview();
+      setCurrentSet(set);
+      $("#cabinet-dialog").close();
+      toast(`Открыт набор «${set.title}»`);
+    } catch (err) {
+      toast(err.message, true);
+    } finally {
+      busy(false);
+    }
+  }
+
+  async function downloadSet(id, format) {
+    const s = cabinetSets.find((x) => x.id === id);
+    busy(true, format === "pdf" ? "Формирование PDF…" : "Формирование документа Word…");
+    try {
+      const blob = await (await api(`/api/sets/${id}/export?format=${format}`)).blob();
+      download(blob, `${s?.title || "Экзаменационные билеты"}.${format}`);
+    } catch (err) {
+      toast(err.message, true);
+    } finally {
+      busy(false);
+    }
+  }
+
+  $("#cab-list").addEventListener("click", async (e) => {
+    const btn = e.target.closest("button[data-act]");
+    if (!btn) return;
+    const id = +btn.closest(".set").dataset.id;
+    const s = cabinetSets.find((x) => x.id === id);
+    const act = btn.dataset.act;
+    if (act === "open") openSet(id);
+    else if (act === "docx" || act === "pdf") downloadSet(id, act);
+    else if (act === "rename") {
+      const title = prompt("Новое название набора", s.title);
+      if (!title || !title.trim() || title.trim() === s.title) return;
+      try {
+        const { set } = await (await api(`/api/sets/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: title.trim() }),
+        })).json();
+        Object.assign(s, set);
+        if (state.currentSet?.id === id) setCurrentSet(set);
+        drawCabinet();
+      } catch (err) { toast(err.message, true); }
+    } else if (act === "delete") {
+      if (!confirm(`Удалить набор «${s.title}»? Это действие нельзя отменить.`)) return;
+      try {
+        await api(`/api/sets/${id}`, { method: "DELETE" });
+        cabinetSets = cabinetSets.filter((x) => x.id !== id);
+        if (state.currentSet?.id === id) setCurrentSet(null);
+        drawCabinet();
+        toast("Набор удалён");
+      } catch (err) { toast(err.message, true); }
+    }
+  });
+  $("#cab-search").addEventListener("input", drawCabinet);
+  $("#cab-new").addEventListener("click", () => {
+    if ((el.q.theory.value.trim() || el.q.practice.value.trim()) && !confirm("Начать новый набор? Текущие вопросы будут очищены (сохранённые наборы не пострадают).")) return;
+    setCurrentSet(null);
+    el.q.theory.value = el.q.practice.value = "";
+    state.seed = Math.floor(Math.random() * 2 ** 31);
+    $("#cabinet-dialog").close();
+    refresh();
+    toast("Новый набор");
+  });
+  $("#cab-logout").addEventListener("click", async () => {
+    try { await api("/api/auth/logout", { method: "POST" }); } catch { /* всё равно выходим */ }
+    setUser(null);
+    $("#cabinet-dialog").close();
+    toast("Вы вышли из личного кабинета");
+  });
+  // После перезагрузки страницы: проверяем, что набор ещё существует, и подтягиваем его шаблон.
+  async function reattachSet(remembered) {
+    try {
+      const res = await fetch(`/api/sets/${remembered.id}`, { credentials: "same-origin" });
+      if (!res.ok) return setCurrentSet(null);
+      const { set } = await res.json();
+      setCurrentSet(set);
+      if (set.hasTemplate && !state.templateFile) {
+        const blob = await (await api(`/api/sets/${set.id}/template`)).blob();
+        await loadTemplate(new File([blob], set.templateName || "template.docx", { type: blob.type }));
+        refresh();
+      }
+    } catch { setCurrentSet(null); }
+  }
+
+  $("#btn-account").addEventListener("click", () => (state.user ? openCabinet() : openAuth()));
+  $$("dialog [data-close]").forEach((b) => b.addEventListener("click", () => b.closest("dialog").close()));
+
   // ------------------------------------------------------------------ init
   (async () => {
     restore();
@@ -1013,6 +1378,12 @@
       toast(`Не удалось загрузить шаблон: ${err.message}`, true);
     }
     refresh();
+    try {
+      const { user } = await (await fetch("/api/auth/me", { credentials: "same-origin" })).json();
+      const remembered = state.currentSet;
+      setUser(user);
+      if (user && remembered) await reattachSet(remembered);
+    } catch { /* сервер недоступен */ }
     try {
       const h = await (await fetch("/api/health")).json();
       if (!h.pdf) {

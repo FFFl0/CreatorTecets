@@ -23,6 +23,13 @@
     </div>
     <div class="topbar-actions">
       <button class="btn ghost theme-btn" id="btn-theme" type="button" title="Тема оформления" aria-label="Тема оформления"></button>
+      <span class="set-chip" id="current-set" hidden title="Текущий набор из личного кабинета"></span>
+      <button class="btn secondary" id="btn-save" type="button" title="Сохранить билеты в личный кабинет">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h11l3 3v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M7 3v6h8V3M7 21v-7h10v7"/></svg>Сохранить
+      </button>
+      <button class="btn ghost account-btn" id="btn-account" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><span>Войти</span>
+      </button>
       <button class="btn ghost" id="btn-demo" type="button" title="Заполнить формы примерами вопросов">Пример</button>
       <button class="btn ghost" id="btn-reset" type="button" title="Очистить все поля">Сбросить</button>
       <button class="btn secondary" id="btn-docx" type="button" disabled>
@@ -219,6 +226,77 @@
       <input type="search" id="replace-search" placeholder="Поиск по вопросам…" autocomplete="off" />
       <ul class="replace-list" id="replace-list"></ul>
     </form>
+  </dialog>
+
+  <!-- Вход / регистрация -->
+  <dialog id="auth-dialog">
+    <form class="dialog auth" id="auth-form" novalidate>
+      <header>
+        <h3>Личный кабинет</h3>
+        <button class="icon-btn" type="button" data-close aria-label="Закрыть">✕</button>
+      </header>
+      <p class="muted small" id="auth-reason">Войдите, чтобы сохранять билеты и возвращаться к ним в любой момент.</p>
+      <div class="segmented" role="tablist">
+        <label><input type="radio" name="auth-mode" value="login" checked /><span>Вход</span></label>
+        <label><input type="radio" name="auth-mode" value="register" /><span>Регистрация</span></label>
+      </div>
+      <label class="text-field" id="auth-name-row" hidden>
+        <span>Имя (необязательно)</span>
+        <input type="text" id="auth-name" autocomplete="name" maxlength="100" />
+      </label>
+      <label class="text-field">
+        <span>Электронная почта</span>
+        <input type="email" id="auth-email" autocomplete="email" required maxlength="200" />
+      </label>
+      <label class="text-field">
+        <span>Пароль</span>
+        <input type="password" id="auth-password" autocomplete="current-password" required maxlength="200" />
+        <small class="muted" id="auth-pass-hint" hidden>Не короче 8 символов</small>
+      </label>
+      <p class="form-error" id="auth-error" role="alert" hidden></p>
+      <button class="btn primary" type="submit" id="auth-submit">Войти</button>
+    </form>
+  </dialog>
+
+  <!-- Сохранение набора -->
+  <dialog id="save-dialog">
+    <form class="dialog" id="save-form">
+      <header>
+        <h3>Сохранить в личный кабинет</h3>
+        <button class="icon-btn" type="button" data-close aria-label="Закрыть">✕</button>
+      </header>
+      <label class="text-field">
+        <span>Название набора</span>
+        <input type="text" id="save-title" required maxlength="200" />
+      </label>
+      <p class="muted small" id="save-note"></p>
+      <div class="row gap-s wrap dialog-actions">
+        <button class="btn ghost" type="button" id="save-as-new" hidden>Сохранить как новый</button>
+        <button class="btn primary" type="submit" id="save-submit">Сохранить</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Личный кабинет -->
+  <dialog id="cabinet-dialog">
+    <div class="dialog cabinet">
+      <header>
+        <div>
+          <h3>Личный кабинет</h3>
+          <p class="muted small" id="cab-user"></p>
+        </div>
+        <div class="row gap-s">
+          <button class="btn small ghost" type="button" id="cab-logout">Выйти</button>
+          <button class="icon-btn" type="button" data-close aria-label="Закрыть">✕</button>
+        </div>
+      </header>
+      <div class="row gap-s cab-tools">
+        <input type="search" id="cab-search" placeholder="Поиск по названию, группе, дисциплине…" autocomplete="off" />
+        <button class="btn small secondary" type="button" id="cab-new" title="Начать новый набор билетов">+ Новый набор</button>
+      </div>
+      <p class="muted small" id="cab-count"></p>
+      <ul class="sets" id="cab-list"></ul>
+    </div>
   </dialog>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
