@@ -20,8 +20,7 @@
   color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
+:root[data-theme="dark"] {
     --bg: #0f1117;
     --surface: #171a23;
     --surface-2: #1d2130;
@@ -39,6 +38,29 @@
     --err-soft: #2f1517;
     --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 6px 24px rgba(0, 0, 0, .25);
     color-scheme: dark;
+  
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1117;
+    --surface: #171a23;
+    --surface-2: #1d2130;
+    --border: #2a2f40;
+    --text: #e8eaf2;
+    --muted: #949ab0;
+    --accent: #818cf8;
+    --accent-2: #6366f1;
+    --accent-soft: #23264a;
+    --ok: #4ade80;
+    --ok-soft: #12291c;
+    --warn: #fbbf24;
+    --warn-soft: #2d2410;
+    --err: #f87171;
+    --err-soft: #2f1517;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 6px 24px rgba(0, 0, 0, .25);
+    color-scheme: dark;
+  
   }
 }
 
@@ -47,6 +69,7 @@
 html, body { margin: 0; }
 body {
   background: var(--bg);
+  transition: background-color .2s, color .2s;
   color: var(--text);
   font: 14px/1.45 "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -235,7 +258,7 @@ input:focus, textarea:focus { outline: none; border-color: var(--accent); box-sh
 .empty strong { display: block; color: var(--text); font-size: 15px; margin-bottom: 4px; }
 
 .page-wrap { margin: 0 auto 28px; width: fit-content; }
-.page-label { display: flex; justify-content: space-between; color: #2b2f40; font-size: 12px; font-weight: 700; margin-bottom: 6px; }
+.page-label { display: flex; justify-content: space-between; color: var(--text); font-size: 12px; font-weight: 700; margin-bottom: 6px; }
 .page {
   position: relative; background: #fff; color: #000; box-shadow: var(--paper-shadow);
   font-family: "Times New Roman", "Liberation Serif", Times, serif; font-size: 16px; line-height: 1.15;
@@ -306,4 +329,30 @@ dialog::backdrop { background: rgba(15, 17, 30, .45); backdrop-filter: blur(2px)
 }
 @media print {
   .topbar, .settings, .check, .preview-head, .hint { display: none !important; }
+}
+
+/* ---------- Theme toggle ---------- */
+.theme-btn { width: 38px; padding: 0; }
+.theme-btn svg { width: 18px; height: 18px; }
+
+/* ---------- Zoom ---------- */
+.zoom { display: flex; align-items: center; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--surface-2); }
+.zoom button { height: 30px; min-width: 30px; padding: 0 8px; border: 0; background: none; color: var(--text); font: inherit; font-weight: 600; cursor: pointer; }
+.zoom button:hover { background: var(--accent-soft); color: var(--accent); }
+.zoom button.active { color: var(--accent); }
+.zoom output { min-width: 50px; text-align: center; font-variant-numeric: tabular-nums; font-weight: 600; font-size: 13px; }
+.zoom .sep { width: 1px; align-self: stretch; background: var(--border); }
+.preview-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* ---------- Режим «Развернуть просмотр» ---------- */
+body.focus .settings { display: none; }
+body.focus .layout { grid-template-columns: minmax(0, 1fr); max-width: none; }
+body.focus .workspace { max-height: calc(100vh - 100px); }
+body.focus .check .meters, body.focus .check .issues { display: none; }
+body.focus .check { padding: 10px 18px; }
+body.focus .check-head { margin: 0; }
+body.focus .view { max-height: none; }
+@media (max-width: 1020px) {
+  body.focus .workspace { max-height: none; }
+  body.focus .view { max-height: 85vh; }
 }

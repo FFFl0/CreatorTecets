@@ -492,7 +492,10 @@
     const pg = tpl.page;
     const pageW = pg.width * PX_PER_TWIP;
     const avail = el.pages.clientWidth - 48;
-    const zoom = avail > 0 ? Math.min(1, avail / pageW) : 1;
+    const fit = avail > 0 ? Math.min(2, avail / pageW) : 1;
+    const zoom = state.zoom === "fit" ? fit : state.zoom;
+    $("#zoom-value").textContent = `${Math.round(zoom * 100)}%`;
+    $("#zoom-fit").classList.toggle("active", state.zoom === "fit");
     const pageStyle = [
       `width:${pageW}px`,
       `min-height:${pg.height * PX_PER_TWIP}px`,
@@ -918,6 +921,87 @@
     ].join("\n");
     refresh();
     toast("Добавлены примеры вопросов");
+  });
+
+  // ------------------------------------------------------------ zoom/focus
+  const ZOOM_STEPS = [0.5, 0.6, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2];
+  const ZOOM_KEY = "creatortecets:zoom";
+  try {
+    const z = localStorage.getItem(ZOOM_KEY);
+    state.zoom = z && z !== "fit" && Number.isFinite(+z) ? +z : "fit";
+  } catch { state.zoom = "fit"; }
+
+  function currentZoom() {
+    const pageW = (state.template?.page.width || 11906) * PX_PER_TWIP;
+    return state.zoom === "fit" ? Math.min(2, (el.pages.clientWidth - 48) / pageW) : state.zoom;
+  }
+
+  function setZoom(z) {
+    // Сохраняем относительную позицию прокрутки, чтобы не терять текущий билет.
+    const ratio = el.pages.scrollHeight ? el.pages.scrollTop / el.pages.scrollHeight : 0;
+    state.zoom = z;
+    try { localStorage.setItem(ZOOM_KEY, String(z)); } catch { /* не критично */ }
+    renderPreview();
+    el.pages.scrollTop = ratio * el.pages.scrollHeight;
+  }
+
+  function stepZoom(dir) {
+    const cur = currentZoom();
+    const next = dir > 0 ? ZOOM_STEPS.find((v) => v > cur + 0.001) : [...ZOOM_STEPS].reverse().find((v) => v < cur - 0.001);
+    setZoom(next ?? (dir > 0 ? ZOOM_STEPS.at(-1) : ZOOM_STEPS[0]));
+  }
+
+  $("#zoom-in").addEventListener("click", () => stepZoom(1));
+  $("#zoom-out").addEventListener("click", () => stepZoom(-1));
+  $("#zoom-fit").addEventListener("click", () => setZoom("fit"));
+  el.pages.addEventListener(
+    "wheel",
+    (e) => {
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      stepZoom(e.deltaY < 0 ? 1 : -1);
+    },
+    { passive: false },
+  );
+
+  function setFocus(on) {
+    document.body.classList.toggle("focus", on);
+    const b = $("#btn-focus");
+    $("span", b).textContent = on ? "Свернуть" : "Развернуть";
+    b.title = on ? "Вернуть панель настроек (Esc)" : "Развернуть просмотр на весь экран (Esc — свернуть)";
+    $("path", b).setAttribute("d", on ? "M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" : "M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5");
+    if (state.view === "pages") renderPreview();
+  }
+  $("#btn-focus").addEventListener("click", () => setFocus(!document.body.classList.contains("focus")));
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && document.body.classList.contains("focus") && !$("#replace-dialog").open) setFocus(false);
+  });
+
+  // ---------------------------------------------------------------- theme
+  const THEME_KEY = "creatortecets:theme";
+  const THEMES = ["auto", "light", "dark"];
+  const THEME_LABEL = { auto: "Тема: как в системе", light: "Тема: светлая", dark: "Тема: тёмная" };
+  const THEME_ICON = {
+    auto: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/></svg>',
+    light: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
+    dark: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>',
+  };
+  function applyTheme(theme) {
+    if (theme === "auto") delete document.documentElement.dataset.theme;
+    else document.documentElement.dataset.theme = theme;
+    const b = $("#btn-theme");
+    b.innerHTML = THEME_ICON[theme];
+    b.title = THEME_LABEL[theme] + " (нажмите, чтобы сменить)";
+    b.setAttribute("aria-label", THEME_LABEL[theme]);
+  }
+  let theme = "auto";
+  try { theme = THEMES.includes(localStorage.getItem(THEME_KEY)) ? localStorage.getItem(THEME_KEY) : "auto"; } catch { /* */ }
+  applyTheme(theme);
+  $("#btn-theme").addEventListener("click", () => {
+    theme = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length];
+    applyTheme(theme);
+    try { localStorage.setItem(THEME_KEY, theme); } catch { /* */ }
+    toast(THEME_LABEL[theme]);
   });
 
   // ------------------------------------------------------------------ init

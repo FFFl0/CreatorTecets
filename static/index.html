@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>CreatorTecets — экзаменационные билеты</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%234f46e5'/><path d='M9 9h14v3H9zm0 6h14v2H9zm0 5h9v2H9z' fill='white'/></svg>" />
+  <script>
+    try { var t = localStorage.getItem("creatortecets:theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -19,6 +22,7 @@
       </div>
     </div>
     <div class="topbar-actions">
+      <button class="btn ghost theme-btn" id="btn-theme" type="button" title="Тема оформления" aria-label="Тема оформления"></button>
       <button class="btn ghost" id="btn-demo" type="button" title="Заполнить формы примерами вопросов">Пример</button>
       <button class="btn ghost" id="btn-reset" type="button" title="Очистить все поля">Сбросить</button>
       <button class="btn secondary" id="btn-docx" type="button" disabled>
@@ -174,8 +178,18 @@
             <button role="tab" class="tab" data-view="table" type="button">Сводка</button>
             <button role="tab" class="tab" data-view="pdf" type="button">PDF-просмотр</button>
           </div>
-          <div class="row gap-s">
+          <div class="preview-tools">
             <span class="muted small" id="preview-meta"></span>
+            <div class="zoom" id="zoom" role="group" aria-label="Масштаб просмотра">
+              <button type="button" id="zoom-out" title="Уменьшить (Ctrl + колесо мыши)" aria-label="Уменьшить">−</button>
+              <output id="zoom-value">100%</output>
+              <button type="button" id="zoom-in" title="Увеличить (Ctrl + колесо мыши)" aria-label="Увеличить">+</button>
+              <span class="sep"></span>
+              <button type="button" id="zoom-fit" title="По ширине окна">По ширине</button>
+            </div>
+            <button class="btn small ghost" id="btn-focus" type="button" title="Развернуть просмотр на весь экран (Esc — свернуть)">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><span>Развернуть</span>
+            </button>
             <button class="btn small secondary" id="btn-shuffle" type="button" title="Перераспределить вопросы случайным образом">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>Перемешать
             </button>
