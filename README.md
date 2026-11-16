@@ -104,14 +104,25 @@ pip install pytest httpx
 python -m pytest
 ```
 
-## Развёртывание на своём сервере (Docker Compose)
+## Развёртывание на сервере (VPS)
+
+Подойдёт недорогой VPS с Ubuntu 22.04/24.04, 1 ядром и 1–2 ГБ памяти.
+Подключитесь к серверу по SSH и выполните одну команду:
 
 ```bash
-git clone https://github.com/FFFl0/CreatorTecets.git
-cd CreatorTecets
-git checkout ccr-cc297434-iob7x1
-docker compose up -d --build
+# без домена — сайт будет доступен по http://<IP сервера>:8000
+curl -fsSL https://raw.githubusercontent.com/FFFl0/CreatorTecets/ccr-cc297434-iob7x1/deploy/setup.sh | sudo bash
+
+# с доменом и HTTPS (сначала направьте A-запись домена на IP сервера)
+curl -fsSL https://raw.githubusercontent.com/FFFl0/CreatorTecets/ccr-cc297434-iob7x1/deploy/setup.sh | sudo DOMAIN=tickets.example.ru bash
 ```
 
-Приложение будет доступно по адресу `http://<IP сервера>:8000` и перезапускается автоматически.
-Обновление: `git pull && docker compose up -d --build`.
+Скрипт установит Docker, при необходимости создаст файл подкачки, соберёт и запустит приложение
+(автозапуск после перезагрузки), а с доменом — получит бесплатный сертификат HTTPS через Caddy.
+Ежедневно делается резервная копия базы в `/opt/creatortecets/backups` (хранится 14 дней).
+
+Если репозиторий приватный, склонируйте его вручную в `/opt/creatortecets` (с токеном GitHub)
+и запустите `sudo bash /opt/creatortecets/deploy/setup.sh`.
+
+Обновление до новой версии: `sudo bash /opt/creatortecets/deploy/update.sh`.
+

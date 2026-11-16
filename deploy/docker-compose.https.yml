@@ -1,0 +1,28 @@
+# HTTPS через Caddy (бесплатный сертификат Let's Encrypt выпускается автоматически).
+# Используется вместе с основным файлом:
+#   DOMAIN=tickets.example.ru docker compose -f docker-compose.yml -f deploy/docker-compose.https.yml up -d --build
+services:
+  creatortecets:
+    ports: !reset []
+    expose:
+      - "8000"
+
+  caddy:
+    image: caddy:2
+    container_name: creatortecets-caddy
+    depends_on:
+      - creatortecets
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?Укажите домен в переменной DOMAIN}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    restart: unless-stopped
+
+volumes:
+  caddy-data:
+  caddy-config:
