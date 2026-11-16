@@ -35,7 +35,7 @@ def test_template_analysis():
     info = Template.load(DEFAULT_TEMPLATE.read_bytes()).describe()
     assert info["hasTheory"] and info["hasPractice"] and info["hasNumber"]
     labels = [f["label"] for f in info["fields"]]
-    assert labels == ["Специальность", "Группа", "Дисциплина", "Семестр"]
+    assert labels == ["Специальность", "Группа", "Дисциплина", "Семестр", "Разработчик"]
 
 
 def test_build_numbers_questions_and_fields():
@@ -100,3 +100,14 @@ def test_api_rejects_bad_payload():
 def test_api_export_pdf():
     r = client.post("/api/export", data={"payload": json.dumps({"tickets": tickets(2)}), "format": "pdf"})
     assert r.status_code == 200 and r.content.startswith(b"%PDF")
+
+
+def test_developer_in_footer_is_editable():
+    tpl = Template.load(DEFAULT_TEMPLATE.read_bytes())
+    fields = {f["label"]: f["value"] for f in tpl.fields()}
+    assert fields["Разработчик"] == "Юмашева У.А."
+    out = tpl.build(tickets(1), {"Разработчик": "Иванов И.И."})
+    footer = docx.Document(io.BytesIO(out)).sections[0].footer
+    text = "".join(c.text for t in footer.tables for r in t.rows for c in r.cells) + "".join(p.text for p in footer.paragraphs)
+    assert "Разработчик: Иванов И.И./______________" in text
+    assert "Юмашева" not in text

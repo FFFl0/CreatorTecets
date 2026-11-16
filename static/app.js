@@ -436,7 +436,7 @@
       const m = /(билет\S*\s*№\s*)(\d*)/i.exec(p.text);
       if (m) runs = replaceRuns(runs, m.index + m[1].length, m.index + m[0].length, String(number));
     } else if (p.role === "field" && p.label in state.fields) {
-      runs = replaceRuns(runs, p.prefixLen, p.text.length, state.fields[p.label]);
+      runs = replaceRuns(runs, p.prefixLen, p.valueEnd ?? p.text.length, state.fields[p.label]);
     }
     const html = runs.map((r) => `<span style="${runStyle(r)}">${escapeHtml(r.text)}</span>`).join("");
     return `<p style="text-align:${p.align};${indentCss(p.indent)}">${html || "&nbsp;"}</p>`;

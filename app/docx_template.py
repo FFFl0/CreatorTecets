@@ -43,8 +43,38 @@ PRACTICE_RE = re.compile(
 NUMBER_RE = re.compile(r"(билет\w*\s*№\s*)(\d*)", re.IGNORECASE)
 FIELD_RE = re.compile(r"^\s*([A-Za-zА-Яа-яЁё][A-Za-zА-Яа-яЁё .\-]{1,40}?)\s*:\s*")
 
-# Поля шапки, которые не имеет смысла редактировать (подписи и т. п.).
-SKIP_FIELD_LABELS = {"разработчик"}
+# Линия для подписи в конце поля: «Юмашева У.А./______________».
+SIGNATURE_RE = re.compile(r"\s*/?\s*_{3,}[\s_]*$")
+# Поля, которые не имеет смысла редактировать.
+SKIP_FIELD_LABELS: set[str] = set()
+# Части документа, где тоже ищутся поля (колонтитулы).
+EXTRA_PART_RE = re.compile(r"word/(header|footer)\d*\.xml")
+
+
+def field_span(text: str) -> tuple[str, int, int] | None:
+    """Поле «Название: значение» → (название, начало значения, конец значения).
+
+    Линия для подписи в конце («/______») в значение не входит и сохраняется.
+    """
+    m = FIELD_RE.match(text)
+    if not m:
+        return None
+    label = m.group(1).strip()
+    if label.lower() in SKIP_FIELD_LABELS:
+        return None
+    end = len(text)
+    sig = SIGNATURE_RE.search(text, m.end())
+    if sig:
+        end = sig.start()
+    return label, m.end(), end
+
+
+def fill_fields(paras, fields: dict[str, str]) -> None:
+    lowered = {k.strip().lower(): v for k, v in fields.items()}
+    for p in paras:
+        span = field_span(para_text(p))
+        if span and span[0].lower() in lowered:
+            replace_span(p, span[1], span[2], lowered[span[0].lower()])
 
 
 class TemplateError(ValueError):
@@ -255,22 +285,31 @@ class Template:
             else:
                 yield from el.iter(w("p"))
 
+    def extra_parts(self) -> dict[str, etree._Element]:
+        """Колонтитулы документа (разобранный XML)."""
+        if not hasattr(self, "_extra"):
+            parser = etree.XMLParser(resolve_entities=False, no_network=True)
+            self._extra = {
+                name: etree.fromstring(data, parser)
+                for name, data in sorted(self.files.items())
+                if EXTRA_PART_RE.fullmatch(name)
+            }
+        return self._extra
+
     def fields(self) -> list[dict]:
-        """Редактируемые поля «Название: значение» вне блоков вопросов."""
+        """Редактируемые поля «Название: значение» в тексте и колонтитулах."""
         result, seen = [], set()
         skip = {id(self.body_items[i]) for i in self.theory_idx + self.practice_idx}
-        for p in self.iter_paragraphs():
-            if id(p) in skip:
-                continue
+        paras = [p for p in self.iter_paragraphs() if id(p) not in skip]
+        for root in self.extra_parts().values():
+            paras.extend(root.iter(w("p")))
+        for p in paras:
             text = para_text(p)
-            m = FIELD_RE.match(text)
-            if not m:
+            span = field_span(text)
+            if not span or span[0].lower() in seen:
                 continue
-            label = m.group(1).strip()
-            if label.lower() in SKIP_FIELD_LABELS or label.lower() in seen:
-                continue
-            seen.add(label.lower())
-            result.append({"label": label, "value": text[m.end():].strip()})
+            seen.add(span[0].lower())
+            result.append({"label": span[0], "value": text[span[1]:span[2]].strip()})
         return result
 
     def has_number(self) -> bool:
@@ -299,19 +338,16 @@ class Template:
                 continue
             out.append(el)
 
-        lowered = {k.strip().lower(): v for k, v in fields.items()}
+        field_paras = []
         for el in out:
             paras = [el] if el.tag == w("p") else list(el.iter(w("p")))
             for p in paras:
-                text = para_text(p)
-                m = NUMBER_RE.search(text)
+                m = NUMBER_RE.search(para_text(p))
                 if m:
                     replace_span(p, m.start(2), m.end(2), str(number))
-                    continue
-                m = FIELD_RE.match(text)
-                if m and m.group(1).strip().lower() in lowered:
-                    value = lowered[m.group(1).strip().lower()]
-                    replace_span(p, m.end(), len(text), value)
+                else:
+                    field_paras.append(p)
+        fill_fields(field_paras, fields)
 
         # Хвостовые пустые абзацы могут вытолкнуть пустую страницу — убираем их.
         while out and _is_empty_para(out[-1]):
@@ -356,8 +392,17 @@ class Template:
         with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zf:
             # [Content_Types].xml должен идти первым.
             names = sorted(self.files, key=lambda n: n != "[Content_Types].xml")
+            extra = {}
+            if fields:
+                for name, part in self.extra_parts().items():
+                    part = copy.deepcopy(part)
+                    fill_fields(list(part.iter(w("p"))), fields)
+                    extra[name] = etree.tostring(part, xml_declaration=True, encoding="UTF-8", standalone=True)
             for name in names:
-                zf.writestr(name, doc_xml if name == "word/document.xml" else self.files[name])
+                if name == "word/document.xml":
+                    zf.writestr(name, doc_xml)
+                else:
+                    zf.writestr(name, extra.get(name, self.files[name]))
         return out.getvalue()
 
     # ------------------------------------------------------------------ #
@@ -397,9 +442,8 @@ class Template:
                         page[k] = abs(int(v))
 
         footer = []
-        for name, data in sorted(self.files.items()):
-            if re.fullmatch(r"word/footer\d*\.xml", name):
-                froot = etree.fromstring(data)
+        for name, froot in self.extra_parts().items():
+            if name.startswith("word/footer"):
                 for p in froot.iter(w("p")):
                     d = _describe_para(p)
                     if d["text"].strip():
@@ -485,11 +529,10 @@ def _describe_para(p: etree._Element) -> dict:
     if NUMBER_RE.search(text):
         d["role"] = "number"
     else:
-        m = FIELD_RE.match(text)
-        if m and m.group(1).strip().lower() not in SKIP_FIELD_LABELS:
+        span = field_span(text)
+        if span:
             d["role"] = "field"
-            d["label"] = m.group(1).strip()
-            d["prefixLen"] = m.end()
+            d["label"], d["prefixLen"], d["valueEnd"] = span
     return d
 
 
