@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CreatorTecets — экзаменационные билеты</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%234f46e5'/><path d='M9 9h14v3H9zm0 6h14v2H9zm0 5h9v2H9z' fill='white'/></svg>" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">
+        <svg viewBox="0 0 32 32"><rect width="32" height="32" rx="8"/><path d="M9 9h14v3H9zm0 6h14v2H9zm0 5h9v2H9z"/></svg>
+      </div>
+      <div>
+        <h1>CreatorTecets</h1>
+        <p>Автоматическое формирование экзаменационных билетов</p>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn ghost" id="btn-demo" type="button" title="Заполнить формы примерами вопросов">Пример</button>
+      <button class="btn ghost" id="btn-reset" type="button" title="Очистить все поля">Сбросить</button>
+      <button class="btn secondary" id="btn-docx" type="button" disabled>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0-4-4m4 4 4-4M5 21h14"/></svg>Word (.docx)
+      </button>
+      <button class="btn primary" id="btn-pdf" type="button" disabled>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0-4-4m4 4 4-4M5 21h14"/></svg>PDF
+      </button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- ============ Левая колонка: настройки ============ -->
+    <section class="settings" aria-label="Настройки">
+      <article class="card" id="card-template">
+        <header class="card-head">
+          <span class="step">1</span>
+          <div>
+            <h2>Шаблон билета</h2>
+            <p class="muted">Оформление документа сохраняется полностью</p>
+          </div>
+        </header>
+        <div class="template-file">
+          <div class="file-chip">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>
+            <div>
+              <strong id="tpl-name">Загрузка…</strong>
+              <span class="muted" id="tpl-meta"></span>
+            </div>
+          </div>
+          <div class="row gap-s wrap">
+            <label class="btn small secondary">
+              <input type="file" id="tpl-input" accept=".docx" hidden />Загрузить свой
+            </label>
+            <button class="btn small ghost" id="tpl-reset" type="button" hidden>Вернуть стандартный</button>
+            <a class="btn small ghost" href="/api/template/default" download>Скачать шаблон</a>
+          </div>
+        </div>
+        <details class="fields" id="fields-box" open>
+          <summary>Данные шапки билета</summary>
+          <div id="fields" class="fields-grid"></div>
+        </details>
+      </article>
+
+      <article class="card">
+        <header class="card-head">
+          <span class="step">2</span>
+          <div>
+            <h2>Параметры</h2>
+            <p class="muted">Сколько билетов и вопросов в каждом</p>
+          </div>
+        </header>
+        <div class="params">
+          <label class="num">
+            <span>Количество билетов</span>
+            <div class="stepper"><button type="button" data-step="-1">−</button><input type="number" id="p-count" min="1" max="500" value="10" /><button type="button" data-step="1">+</button></div>
+          </label>
+          <label class="num">
+            <span>Теоретических вопросов в билете</span>
+            <div class="stepper"><button type="button" data-step="-1">−</button><input type="number" id="p-theory" min="0" max="20" value="2" /><button type="button" data-step="1">+</button></div>
+          </label>
+          <label class="num">
+            <span>Практических заданий в билете</span>
+            <div class="stepper"><button type="button" data-step="-1">−</button><input type="number" id="p-practice" min="0" max="20" value="2" /><button type="button" data-step="1">+</button></div>
+          </label>
+        </div>
+        <div class="options">
+          <div class="segmented" role="radiogroup" aria-label="Порядок распределения">
+            <label><input type="radio" name="mode" value="random" checked /><span>Случайно</span></label>
+            <label><input type="radio" name="mode" value="sequential" /><span>По порядку</span></label>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="p-repeat" />
+            <span class="track"></span>
+            <span>Разрешить повторы, если вопросов не хватает</span>
+          </label>
+          <label class="text-field">
+            <span>Имя файла</span>
+            <input type="text" id="p-filename" value="Экзаменационные билеты" maxlength="120" />
+          </label>
+        </div>
+      </article>
+
+      <article class="card qcard" data-kind="theory">
+        <header class="card-head">
+          <span class="step">3</span>
+          <div>
+            <h2>Теоретические вопросы</h2>
+            <p class="muted">По одному вопросу на строку · нумерация удаляется автоматически</p>
+          </div>
+          <span class="badge" id="theory-count">0</span>
+        </header>
+        <div class="dropzone">
+          <textarea id="q-theory" spellcheck="true" placeholder="Назначение и классификация аддитивных установок&#10;Порядок технического обслуживания 3D-принтера&#10;…"></textarea>
+          <div class="drop-hint">Отпустите файл, чтобы загрузить вопросы</div>
+        </div>
+        <div class="row gap-s wrap qactions">
+          <label class="btn small secondary"><input type="file" accept=".txt,.docx,.csv" data-upload="theory" hidden />Загрузить файл</label>
+          <button class="btn small ghost" type="button" data-dedupe="theory" hidden>Удалить дубликаты</button>
+          <button class="btn small ghost" type="button" data-clear="theory">Очистить</button>
+          <span class="muted small">.txt, .docx, .csv</span>
+        </div>
+      </article>
+
+      <article class="card qcard" data-kind="practice">
+        <header class="card-head">
+          <span class="step">4</span>
+          <div>
+            <h2>Практические задания</h2>
+            <p class="muted">По одному заданию на строку</p>
+          </div>
+          <span class="badge" id="practice-count">0</span>
+        </header>
+        <div class="dropzone">
+          <textarea id="q-practice" spellcheck="true" placeholder="Выполнить калибровку стола 3D-принтера&#10;Заменить сопло экструдера&#10;…"></textarea>
+          <div class="drop-hint">Отпустите файл, чтобы загрузить задания</div>
+        </div>
+        <div class="row gap-s wrap qactions">
+          <label class="btn small secondary"><input type="file" accept=".txt,.docx,.csv" data-upload="practice" hidden />Загрузить файл</label>
+          <button class="btn small ghost" type="button" data-dedupe="practice" hidden>Удалить дубликаты</button>
+          <button class="btn small ghost" type="button" data-clear="practice">Очистить</button>
+          <span class="muted small">.txt, .docx, .csv</span>
+        </div>
+      </article>
+    </section>
+
+    <!-- ============ Правая колонка: проверка и просмотр ============ -->
+    <section class="workspace" aria-label="Проверка и предварительный просмотр">
+      <article class="card check" id="check">
+        <header class="check-head">
+          <h2>Проверка</h2>
+          <span class="status" id="check-status"></span>
+        </header>
+        <div class="meters">
+          <div class="meter" id="meter-theory">
+            <div class="meter-top"><span>Теория</span><strong></strong></div>
+            <div class="bar"><i></i></div>
+            <small></small>
+          </div>
+          <div class="meter" id="meter-practice">
+            <div class="meter-top"><span>Практика</span><strong></strong></div>
+            <div class="bar"><i></i></div>
+            <small></small>
+          </div>
+        </div>
+        <ul class="issues" id="issues"></ul>
+      </article>
+
+      <article class="card preview-card">
+        <header class="preview-head">
+          <div class="tabs" role="tablist">
+            <button role="tab" class="tab active" data-view="pages" type="button">Билеты</button>
+            <button role="tab" class="tab" data-view="table" type="button">Сводка</button>
+            <button role="tab" class="tab" data-view="pdf" type="button">PDF-просмотр</button>
+          </div>
+          <div class="row gap-s">
+            <span class="muted small" id="preview-meta"></span>
+            <button class="btn small secondary" id="btn-shuffle" type="button" title="Перераспределить вопросы случайным образом">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>Перемешать
+            </button>
+          </div>
+        </header>
+        <p class="hint" id="edit-hint">Нажмите на вопрос в билете, чтобы заменить его вручную.</p>
+        <div class="view" id="view-pages"></div>
+        <div class="view" id="view-table" hidden></div>
+        <div class="view" id="view-pdf" hidden>
+          <div class="pdf-empty" id="pdf-empty">
+            <p>Точный вид документа, как он будет напечатан.</p>
+            <button class="btn primary" id="btn-pdf-preview" type="button">Сформировать PDF-просмотр</button>
+          </div>
+          <iframe id="pdf-frame" title="PDF-просмотр" hidden></iframe>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <dialog id="replace-dialog">
+    <form method="dialog" class="dialog">
+      <header>
+        <h3 id="replace-title">Заменить вопрос</h3>
+        <button class="icon-btn" value="cancel" aria-label="Закрыть">✕</button>
+      </header>
+      <p class="muted small" id="replace-current"></p>
+      <input type="search" id="replace-search" placeholder="Поиск по вопросам…" autocomplete="off" />
+      <ul class="replace-list" id="replace-list"></ul>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <div class="busy" id="busy" hidden><div class="spinner"></div><span id="busy-text">Формирование…</span></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
