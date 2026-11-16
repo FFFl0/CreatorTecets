@@ -348,7 +348,7 @@
     state.template = info;
     state.templateFile = file || null;
 
-    $("#tpl-name").textContent = info.isDefault ? "Стандартный шаблон (ГБПОУ МГОК)" : info.name;
+    $("#tpl-name").textContent = info.isDefault ? "Стандартный шаблон (ГБПОУ КМП)" : info.name;
     const parts = [];
     if (info.hasTheory) parts.push("теория");
     if (info.hasPractice) parts.push("практика");
