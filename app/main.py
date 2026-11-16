@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import ValidationError
 
-from . import accounts
+from . import accounts, library
 from . import questions as qparse
 from .common import (
     DEFAULT_TEMPLATE,
@@ -85,6 +85,7 @@ async def export(
 
 
 app.include_router(accounts.router)
+app.include_router(library.router)
 
 
 @app.exception_handler(HTTPException)

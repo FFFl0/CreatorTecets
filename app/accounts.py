@@ -67,6 +67,20 @@ CREATE TABLE IF NOT EXISTS ticket_sets (
     updated_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS ix_sets_user ON ticket_sets(user_id, updated_at);
+CREATE TABLE IF NOT EXISTS template_submissions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    title TEXT NOT NULL,
+    institution TEXT NOT NULL DEFAULT '',
+    description TEXT NOT NULL DEFAULT '',
+    filename TEXT NOT NULL,
+    file BLOB NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    admin_note TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    reviewed_at TEXT
+);
+CREATE INDEX IF NOT EXISTS ix_submissions_status ON template_submissions(status, created_at);
 """
 
 
@@ -216,8 +230,34 @@ class DeleteIn(BaseModel):
     password: str = Field(max_length=200)
 
 
+def is_admin(user: dict) -> bool:
+    """Администраторы — почты из ADMIN_EMAILS (через запятую).
+
+    Если переменная не задана, администратором считается первый зарегистрированный пользователь.
+    """
+    emails = {e.strip().lower() for e in os.environ.get("ADMIN_EMAILS", "").split(",") if e.strip()}
+    if emails:
+        return user["email"].lower() in emails
+    with connect() as con:
+        first = con.execute("SELECT MIN(id) FROM users").fetchone()[0]
+    return user["id"] == first
+
+
+def require_admin(request: Request) -> dict:
+    user = require_user(request)
+    if not is_admin(user):
+        raise HTTPException(403, "Доступно только администратору.")
+    return user
+
+
 def _public(user: dict) -> dict:
-    return {"id": user["id"], "email": user["email"], "name": user["name"], "createdAt": user["created_at"]}
+    return {
+        "id": user["id"],
+        "email": user["email"],
+        "name": user["name"],
+        "createdAt": user["created_at"],
+        "isAdmin": is_admin(user),
+    }
 
 
 @router.post("/auth/register")

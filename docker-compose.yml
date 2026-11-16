@@ -7,6 +7,9 @@ services:
       - "8000:8000"
     environment:
       DB_PATH: /data/creatortecets.db
+      # Почты администраторов через запятую (модерация шаблонов).
+      # Если пусто — администратор первый зарегистрированный пользователь.
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
     volumes:
       - creatortecets-data:/data   # пользователи и сохранённые билеты
     restart: unless-stopped

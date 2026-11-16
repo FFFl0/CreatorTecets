@@ -347,7 +347,7 @@
   }
 
   // ------------------------------------------------------------- template
-  async function loadTemplate(file) {
+  async function loadTemplate(file, source = file ? "custom" : "default") {
     const fd = new FormData();
     if (file) fd.append("template", file);
     const res = await fetch("/api/template/inspect", { method: "POST", body: fd });
@@ -356,7 +356,9 @@
     state.template = info;
     state.templateFile = file || null;
 
-    $("#tpl-name").textContent = info.isDefault ? "Стандартный шаблон (ГБПОУ КМП)" : info.name;
+    state.templateSource = source;
+    const lib = source.startsWith?.("lib:") ? libraryTemplates.find((t) => `lib:${t.id}` === source) : null;
+    $("#tpl-name").textContent = info.isDefault ? "Стандартный шаблон (ГБПОУ КМП)" : lib ? lib.title : info.name;
     const parts = [];
     if (info.hasTheory) parts.push("теория");
     if (info.hasPractice) parts.push("практика");
@@ -368,8 +370,8 @@
     state.fields = {};
     for (const f of info.fields) state.fields[f.label] = prev[f.label] ?? f.value;
     renderFields();
-    // Подсказка по количеству вопросов из шаблона
     markPdfStale();
+    syncTemplateUi();
   }
 
   function renderFields() {
@@ -1046,9 +1048,17 @@
       const label = user.name || user.email;
       b.innerHTML = `<span class="avatar">${escapeHtml(label.trim()[0]?.toUpperCase() || "?")}</span><span>${escapeHtml(label)}</span>`;
       b.title = "Личный кабинет";
+      $(".cab-tabs [data-cab=moderation]").hidden = !user.isAdmin;
+      if (user.isAdmin) {
+        fetch("/api/admin/submissions?status=pending", { credentials: "same-origin" })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((d) => d && updateModBadge(d.counts.pending || 0))
+          .catch(() => {});
+      }
     } else {
       b.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><span>Войти</span>`;
       b.title = "Вход и регистрация";
+      $(".cab-tabs [data-cab=moderation]").hidden = true;
       setCurrentSet(null);
     }
   }
@@ -1262,6 +1272,8 @@
     $$(".cab-tabs .tab").forEach((t) => t.classList.toggle("active", t.dataset.cab === tab));
     $$(".cab-pane").forEach((p) => (p.hidden = p.dataset.pane !== tab));
     if (tab === "profile") fillProfile();
+    if (tab === "templates") loadMyTemplates();
+    if (tab === "moderation") loadModeration();
   }
   $$(".cab-tabs .tab").forEach((t) => t.addEventListener("click", () => showCabTab(t.dataset.cab)));
 
@@ -1496,7 +1508,7 @@
         const blob = await (await api(`/api/sets/${id}/template`)).blob();
         file = new File([blob], set.templateName || "template.docx", { type: blob.type });
       }
-      await loadTemplate(file);
+      await loadTemplate(file, file ? "saved" : "default");
       state.templateDirty = false;
       // Восстанавливаем сохранённые билеты как есть, без перераспределения.
       state.tickets = (d.tickets || []).map((t) => ({
@@ -1589,7 +1601,7 @@
       setCurrentSet(set);
       if (set.hasTemplate && !state.templateFile) {
         const blob = await (await api(`/api/sets/${set.id}/template`)).blob();
-        await loadTemplate(new File([blob], set.templateName || "template.docx", { type: blob.type }));
+        await loadTemplate(new File([blob], set.templateName || "template.docx", { type: blob.type }), "saved");
         refresh();
       }
     } catch { setCurrentSet(null); }
@@ -1598,9 +1610,242 @@
   $("#btn-account").addEventListener("click", () => (state.user ? openCabinet() : openAuth()));
   $$("dialog [data-close]").forEach((b) => b.addEventListener("click", () => b.closest("dialog").close()));
 
+  // ------------------------------------------------- библиотека шаблонов
+  var libraryTemplates = [];
+
+  async function loadLibrary() {
+    try {
+      libraryTemplates = (await (await fetch("/api/templates/library")).json()).templates || [];
+    } catch { libraryTemplates = []; }
+    syncTemplateUi();
+  }
+
+  function syncTemplateUi() {
+    const sel = $("#tpl-select");
+    const src = state.templateSource || "default";
+    const opts = [`<option value="default">Стандартный (ГБПОУ КМП)</option>`];
+    if (libraryTemplates.length) {
+      opts.push(`<optgroup label="Библиотека шаблонов">${libraryTemplates
+        .map((t) => `<option value="lib:${t.id}">${escapeHtml(t.title)}${t.institution ? ` — ${escapeHtml(t.institution)}` : ""}</option>`)
+        .join("")}</optgroup>`);
+    }
+    if (src === "custom" || src === "saved") {
+      opts.push(`<option value="${src}">${src === "saved" ? "Шаблон сохранённого набора" : "Свой"}: ${escapeHtml(state.templateFile?.name || "")}</option>`);
+    }
+    sel.innerHTML = opts.join("");
+    sel.value = src;
+    $("#tpl-lib-row").hidden = libraryTemplates.length === 0;
+    $("#tpl-submit").hidden = src !== "custom";
+  }
+
+  $("#tpl-select").addEventListener("change", async (e) => {
+    const v = e.target.value;
+    if (v === state.templateSource) return;
+    busy(true, "Загрузка шаблона…");
+    try {
+      if (v === "default") {
+        state.fields = {};
+        await loadTemplate(null);
+      } else if (v.startsWith("lib:")) {
+        const t = libraryTemplates.find((x) => `lib:${x.id}` === v);
+        const res = await fetch(`/api/templates/library/${t.id}/file`);
+        if (!res.ok) throw new Error(await apiError(res));
+        const blob = await res.blob();
+        state.fields = {};
+        await loadTemplate(new File([blob], t.filename || `${t.title}.docx`, { type: blob.type }), v);
+      }
+      state.templateDirty = true;
+      refresh();
+      toast("Шаблон выбран");
+    } catch (err) {
+      toast(err.message, true);
+      syncTemplateUi();
+    } finally {
+      busy(false);
+    }
+  });
+
+  // ---- отправка шаблона на сайт
+  let submitFile = null;
+  function setSubmitFile(file) {
+    submitFile = file;
+    $("#submit-file-name").textContent = file ? file.name : "Файл не выбран";
+    $("#submit-file-meta").textContent = file ? `${Math.max(1, Math.round(file.size / 1024))} КБ` : "Выберите шаблон .docx";
+    if (file && !$("#submit-title").value) $("#submit-title").value = file.name.replace(/\.docx$/i, "");
+  }
+
+  function openSubmit(file) {
+    if (!state.user) {
+      return openAuth("Войдите или зарегистрируйтесь, чтобы отправить шаблон на сайт.", () => openSubmit(file));
+    }
+    $("#submit-form").reset();
+    $("#submit-error").hidden = true;
+    setSubmitFile(file || null);
+    $("#submit-dialog").showModal();
+    $("#submit-title").focus();
+  }
+
+  $("#tpl-submit").addEventListener("click", () => openSubmit(state.templateFile));
+  $("#submit-consent").addEventListener("change", () => ($("#submit-error").hidden = true));
+  $("#tpl-submit-new").addEventListener("click", () => openSubmit(null));
+  $("#submit-file").addEventListener("change", (e) => {
+    if (e.target.files[0]) setSubmitFile(e.target.files[0]);
+    e.target.value = "";
+  });
+  $("#submit-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const err = $("#submit-error");
+    const fail = (msg) => { err.textContent = msg; err.hidden = false; };
+    if (!submitFile) return fail("Выберите файл шаблона.");
+    if (!$("#submit-title").value.trim()) return fail("Укажите название шаблона.");
+    if (!$("#submit-consent").checked) return fail("Отметьте согласие на публикацию — без него шаблон не будет отправлен.");
+    const fd = new FormData();
+    fd.append("template", submitFile);
+    fd.append("title", $("#submit-title").value.trim());
+    fd.append("institution", $("#submit-institution").value.trim());
+    fd.append("description", $("#submit-description").value.trim());
+    fd.append("consent", "true");
+    const btn = $("#submit-send");
+    btn.disabled = true;
+    try {
+      await api("/api/templates/submissions", { method: "POST", body: fd });
+      $("#submit-dialog").close();
+      toast("Шаблон отправлен на проверку. Статус — в личном кабинете, вкладка «Мои шаблоны»");
+      if ($("#cabinet-dialog").open) loadMyTemplates();
+    } catch (ex) {
+      fail(ex.message);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // ---- мои шаблоны
+  async function loadMyTemplates() {
+    const list = $("#my-templates");
+    list.innerHTML = `<li class="empty">Загрузка…</li>`;
+    try {
+      const items = (await (await api("/api/templates/submissions/mine")).json()).submissions;
+      list.innerHTML = items.length
+        ? items
+            .map(
+              (t) => `<li class="set" data-id="${t.id}">
+          <h4><span>${escapeHtml(t.title)}</span><em class="status ${t.status}">${t.statusText}</em></h4>
+          <div class="meta">
+            ${t.institution ? `<span>${escapeHtml(t.institution)}</span>` : ""}
+            <span>${escapeHtml(t.filename)}</span>
+            <span>Отправлен ${fmtDate(t.createdAt)}</span>
+          </div>
+          <div class="actions">${t.status === "pending" ? '<button class="btn small ghost danger" data-act="withdraw" type="button">Отозвать</button>' : ""}</div>
+          ${t.note ? `<p class="note">Комментарий администратора: ${escapeHtml(t.note)}</p>` : ""}
+        </li>`,
+            )
+            .join("")
+        : `<li class="empty"><div><strong>Вы ещё не отправляли шаблоны</strong>Загрузите свой шаблон в блоке «Шаблон билета» и нажмите «Отправить на сайт» — или кнопку выше.</div></li>`;
+    } catch (err) {
+      list.innerHTML = `<li class="empty">${escapeHtml(err.message)}</li>`;
+    }
+  }
+  $("#my-templates").addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-act=withdraw]");
+    if (!b || !confirm("Отозвать шаблон с проверки?")) return;
+    try {
+      await api(`/api/templates/submissions/${b.closest(".set").dataset.id}`, { method: "DELETE" });
+      loadMyTemplates();
+      toast("Шаблон отозван");
+    } catch (err) { toast(err.message, true); }
+  });
+
+  // ---- модерация (только для администратора)
+  let modItems = [];
+  async function loadModeration() {
+    const list = $("#mod-list");
+    const status = $("input[name=mod-status]:checked").value;
+    list.innerHTML = `<li class="empty">Загрузка…</li>`;
+    try {
+      const data = await (await api(`/api/admin/submissions?status=${status}`)).json();
+      modItems = data.submissions;
+      updateModBadge(data.counts.pending || 0);
+      list.innerHTML = modItems.length
+        ? modItems
+            .map(
+              (t) => `<li class="set" data-id="${t.id}">
+          <h4><span>${escapeHtml(t.title)}</span><em class="status ${t.status}">${t.statusText}</em></h4>
+          <div class="meta">
+            <span>От: ${escapeHtml(t.author)}</span>
+            <span>${escapeHtml(t.filename)}</span>
+            <span>Отправлен ${fmtDate(t.createdAt)}</span>
+          </div>
+          <div class="actions">
+            <button class="btn small secondary" data-act="try" type="button" title="Загрузить шаблон в редактор, чтобы посмотреть билеты">Проверить</button>
+            <button class="btn small ghost" data-act="download" type="button">.docx</button>
+          </div>
+          <div class="mod-edit">
+            <label class="text-field"><span>Название</span><input type="text" data-f="title" maxlength="150" value="${escapeHtml(t.title)}" /></label>
+            <label class="text-field"><span>Учебное заведение</span><input type="text" data-f="institution" maxlength="200" value="${escapeHtml(t.institution)}" /></label>
+            <label class="text-field wide"><span>Описание</span><input type="text" data-f="description" maxlength="1000" value="${escapeHtml(t.description)}" /></label>
+            <label class="text-field wide"><span>Комментарий автору</span><input type="text" data-f="note" maxlength="500" value="${escapeHtml(t.note)}" placeholder="Например, причина отклонения" /></label>
+            <div class="row gap-s wrap wide">
+              ${t.status !== "approved" ? '<button class="btn small primary" data-act="approve" type="button">Опубликовать</button>' : '<button class="btn small secondary" data-act="approve" type="button">Сохранить изменения</button>'}
+              ${t.status === "pending" ? '<button class="btn small ghost danger" data-act="reject" type="button">Отклонить</button>' : ""}
+              ${t.status === "approved" ? '<button class="btn small ghost danger" data-act="remove" type="button">Снять с публикации</button>' : ""}
+            </div>
+          </div>
+        </li>`,
+            )
+            .join("")
+        : `<li class="empty">Нет шаблонов в этом разделе</li>`;
+    } catch (err) {
+      list.innerHTML = `<li class="empty">${escapeHtml(err.message)}</li>`;
+    }
+  }
+
+  function updateModBadge(n) {
+    const badge = $("#mod-count");
+    badge.textContent = n;
+    badge.hidden = !n;
+  }
+
+  $$("input[name=mod-status]").forEach((r) => r.addEventListener("change", loadModeration));
+  $("#mod-list").addEventListener("click", async (e) => {
+    const b = e.target.closest("button[data-act]");
+    if (!b) return;
+    const li = b.closest(".set");
+    const id = +li.dataset.id;
+    const item = modItems.find((x) => x.id === id);
+    const act = b.dataset.act;
+    try {
+      if (act === "download" || act === "try") {
+        const blob = await (await api(`/api/admin/submissions/${id}/file`)).blob();
+        if (act === "download") return download(blob, item.filename);
+        state.fields = {};
+        await loadTemplate(new File([blob], item.filename, { type: blob.type }), "custom");
+        state.templateDirty = true;
+        refresh();
+        $("#cabinet-dialog").close();
+        toast(`Шаблон «${item.title}» загружен в редактор для проверки`);
+        return;
+      }
+      if (act === "reject" && !confirm("Отклонить шаблон?")) return;
+      if (act === "remove" && !confirm("Снять шаблон с публикации? Он пропадёт из библиотеки.")) return;
+      const body = { action: act };
+      $$("[data-f]", li).forEach((inp) => (body[inp.dataset.f] = inp.value));
+      await api(`/api/admin/submissions/${id}/review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      toast({ approve: "Шаблон опубликован в библиотеке", reject: "Шаблон отклонён", remove: "Шаблон снят с публикации" }[act]);
+      loadModeration();
+      loadLibrary();
+    } catch (err) {
+      toast(err.message, true);
+    }
+  });
+
   // ------------------------------------------------------------------ init
   (async () => {
     restore();
+    await loadLibrary();
     try {
       await loadTemplate(null);
     } catch (err) {

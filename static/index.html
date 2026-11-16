@@ -60,10 +60,15 @@
               <span class="muted" id="tpl-meta"></span>
             </div>
           </div>
+          <label class="text-field" id="tpl-lib-row" hidden>
+            <span>Шаблон из библиотеки сайта</span>
+            <select id="tpl-select"></select>
+          </label>
           <div class="row gap-s wrap">
             <label class="btn small secondary">
               <input type="file" id="tpl-input" accept=".docx" hidden />Загрузить свой
             </label>
+            <button class="btn small ghost" id="tpl-submit" type="button" hidden title="Предложить этот шаблон для библиотеки сайта">Отправить на сайт</button>
             <button class="btn small ghost" id="tpl-reset" type="button" hidden>Вернуть стандартный</button>
             <a class="btn small ghost" href="/api/template/default" download>Скачать шаблон</a>
           </div>
@@ -307,6 +312,32 @@
     </form>
   </dialog>
 
+  <!-- Отправка шаблона на сайт -->
+  <dialog id="submit-dialog">
+    <form class="dialog" id="submit-form" novalidate>
+      <header>
+        <h3>Отправить шаблон на сайт</h3>
+        <button class="icon-btn" type="button" data-close aria-label="Закрыть">✕</button>
+      </header>
+      <p class="muted small">Шаблон проверит администратор. После одобрения он появится в библиотеке и им смогут пользоваться все. Отправлять или нет — решаете вы.</p>
+      <div class="file-chip">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>
+        <div><strong id="submit-file-name">Файл не выбран</strong><span class="muted" id="submit-file-meta"></span></div>
+        <label class="btn small ghost push"><input type="file" id="submit-file" accept=".docx" hidden />Выбрать файл</label>
+      </div>
+      <label class="text-field"><span>Название шаблона</span><input type="text" id="submit-title" maxlength="150" placeholder="Например, Билет ГБПОУ КМП — 3 колонки" /></label>
+      <label class="text-field"><span>Учебное заведение <span class="muted">(необязательно)</span></span><input type="text" id="submit-institution" maxlength="200" /></label>
+      <label class="text-field"><span>Описание <span class="muted">(необязательно)</span></span><textarea id="submit-description" maxlength="1000" rows="3" placeholder="Для каких экзаменов подходит, особенности оформления"></textarea></label>
+      <p class="notice small">Перед отправкой уберите из шаблона личные данные, которые не должны попасть в общий доступ (ФИО, подписи, телефоны).</p>
+      <label class="check-row"><input type="checkbox" id="submit-consent" /><span>Я разрешаю опубликовать этот шаблон на сайте для всех пользователей</span></label>
+      <p class="form-error" id="submit-error" role="alert" hidden></p>
+      <div class="row gap-s dialog-actions">
+        <button class="btn ghost" type="button" data-close>Не отправлять</button>
+        <button class="btn primary" type="submit" id="submit-send">Отправить на проверку</button>
+      </div>
+    </form>
+  </dialog>
+
   <!-- Личный кабинет -->
   <dialog id="cabinet-dialog">
     <div class="dialog cabinet">
@@ -322,6 +353,8 @@
       </header>
       <div class="tabs cab-tabs" role="tablist">
         <button role="tab" class="tab active" data-cab="sets" type="button">Мои наборы</button>
+        <button role="tab" class="tab" data-cab="templates" type="button">Мои шаблоны</button>
+        <button role="tab" class="tab" data-cab="moderation" type="button" hidden>Модерация <span class="count-badge" id="mod-count" hidden></span></button>
         <button role="tab" class="tab" data-cab="profile" type="button">Профиль</button>
       </div>
       <section class="cab-pane" data-pane="sets">
@@ -331,6 +364,22 @@
       </div>
       <p class="muted small" id="cab-count"></p>
       <ul class="sets" id="cab-list"></ul>
+      </section>
+      <section class="cab-pane" data-pane="templates" hidden>
+        <div class="row gap-s wrap cab-tools">
+          <p class="muted small grow">Шаблоны, которые вы предложили для библиотеки сайта. После проверки администратором они станут доступны всем пользователям.</p>
+          <button class="btn small secondary" type="button" id="tpl-submit-new">+ Отправить шаблон</button>
+        </div>
+        <ul class="sets" id="my-templates"></ul>
+      </section>
+      <section class="cab-pane" data-pane="moderation" hidden>
+        <div class="segmented four" role="tablist" id="mod-filter">
+          <label><input type="radio" name="mod-status" value="pending" checked /><span>На проверке</span></label>
+          <label><input type="radio" name="mod-status" value="approved" /><span>Опубликованы</span></label>
+          <label><input type="radio" name="mod-status" value="rejected" /><span>Отклонены</span></label>
+          <label><input type="radio" name="mod-status" value="all" /><span>Все</span></label>
+        </div>
+        <ul class="sets" id="mod-list"></ul>
       </section>
       <section class="cab-pane profile" data-pane="profile" hidden>
         <form class="pcard" id="profile-form" novalidate>

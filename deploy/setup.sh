@@ -2,6 +2,7 @@
 # Установка CreatorTecets на чистый сервер Ubuntu/Debian.
 #   Без домена:  sudo bash setup.sh
 #   С доменом:   sudo DOMAIN=tickets.example.ru bash setup.sh
+#   Администратор: добавьте ADMIN_EMAILS=you@example.ru (иначе — первый зарегистрированный)
 set -euo pipefail
 
 REPO="${REPO:-https://github.com/FFFl0/CreatorTecets.git}"
@@ -35,8 +36,10 @@ fi
 cd "$DIR"
 
 echo "==> Сборка и запуск (первый раз — несколько минут)"
+: > .env
+[ -n "${ADMIN_EMAILS:-}" ] && echo "ADMIN_EMAILS=$ADMIN_EMAILS" >> .env
 if [ -n "${DOMAIN:-}" ]; then
-  echo "DOMAIN=$DOMAIN" > .env
+  echo "DOMAIN=$DOMAIN" >> .env
   docker compose -f docker-compose.yml -f deploy/docker-compose.https.yml up -d --build
   URL="https://$DOMAIN"
 else
