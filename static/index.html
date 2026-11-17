@@ -44,6 +44,10 @@
   <main class="layout">
     <!-- ============ Левая колонка: настройки ============ -->
     <section class="settings" aria-label="Настройки">
+      <div class="mobile-tools">
+        <button class="btn small ghost" type="button" data-proxy="#btn-demo">Заполнить примером</button>
+        <button class="btn small ghost" type="button" data-proxy="#btn-reset">Сбросить</button>
+      </div>
       <article class="card" id="card-template">
         <header class="card-head">
           <span class="step">1</span>
@@ -241,6 +245,24 @@
       <ul class="replace-list" id="replace-list"></ul>
     </form>
   </dialog>
+
+  <nav class="mobile-bar" aria-label="Навигация">
+    <div class="mobile-tabs" role="tablist">
+      <button type="button" role="tab" class="active" data-mview="settings">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h10M4 18h7"/></svg><span>Настройка</span>
+      </button>
+      <button type="button" role="tab" data-mview="preview">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg><span>Билеты</span><i class="mdot" id="mobile-dot"></i>
+      </button>
+    </div>
+    <div class="mobile-actions">
+      <button type="button" class="btn secondary icon-only" data-proxy="#btn-save" aria-label="Сохранить в кабинет" title="Сохранить">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h11l3 3v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M7 3v6h8V3M7 21v-7h10v7"/></svg>
+      </button>
+      <button type="button" class="btn secondary" data-proxy="#btn-docx" id="m-docx"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0-4-4m4 4 4-4M5 21h14"/></svg>Word</button>
+      <button type="button" class="btn primary" data-proxy="#btn-pdf" id="m-pdf"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0-4-4m4 4 4-4M5 21h14"/></svg>PDF</button>
+    </div>
+  </nav>
 
   <footer class="site-footer">
     <span>© <span id="footer-year"></span> CreatorTecets</span>

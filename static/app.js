@@ -323,6 +323,8 @@
       ? warns ? "Можно формировать, есть замечания" : "Всё готово к экспорту"
       : `Есть ${errors} ${plural(errors, "ошибка", "ошибки", "ошибок")}`;
     el.btnDocx.disabled = el.btnPdf.disabled = !ok;
+    $("#m-docx").disabled = $("#m-pdf").disabled = !ok;
+    $("#mobile-dot").className = "mdot " + (ok ? (warns ? "warn" : "") : "err");
     $("#btn-pdf-preview").disabled = !ok;
     state.validation = { ok };
     return ok;
@@ -479,6 +481,12 @@
       .join("");
   }
 
+  // Ширина области просмотра без внутренних отступов.
+  function pagesInnerWidth() {
+    const cs = getComputedStyle(el.pages);
+    return el.pages.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - 4;
+  }
+
   function renderPreview() {
     const tpl = state.template;
     const tickets = state.tickets;
@@ -501,8 +509,9 @@
 
     const pg = tpl.page;
     const pageW = pg.width * PX_PER_TWIP;
-    const avail = el.pages.clientWidth - 48;
-    const fit = avail > 0 ? Math.min(2, avail / pageW) : 1;
+    const avail = pagesInnerWidth();
+    if (avail <= 0) { renderSummary(); return; } // область скрыта — отрисуем листы, когда её покажут
+    const fit = Math.min(2, avail / pageW);
     const zoom = state.zoom === "fit" ? fit : state.zoom;
     $("#zoom-value").textContent = `${Math.round(zoom * 100)}%`;
     $("#zoom-fit").classList.toggle("active", state.zoom === "fit");
@@ -540,10 +549,10 @@
     const rows = state.tickets
       .map(
         (t) =>
-          `<tr><td>${t.number}</td>${cols
+          `<tr><td data-label="Билет №">${t.number}</td>${cols
             .map(
               (k) =>
-                `<td><ol>${t[k]
+                `<td data-label="${k === "theory" ? "Теоретические вопросы" : "Практические задания"}"><ol>${t[k]
                   .map((q) => (q ? `<li>${escapeHtml(q.text)}${q.repeat ? " <span title='Повтор'>↻</span>" : ""}</li>` : `<li style="color:var(--err)">не хватает вопроса</li>`))
                   .join("")}</ol></td>`,
             )
@@ -705,6 +714,7 @@
     el.pages.hidden = view !== "pages";
     el.table.hidden = view !== "table";
     el.pdfView.hidden = view !== "pdf";
+    $("#zoom").hidden = view !== "pages";
     $("#edit-hint").hidden = view !== "pages";
     if (view === "pages") renderPreview();
     if (view === "pdf") {
@@ -948,7 +958,7 @@
 
   function currentZoom() {
     const pageW = (state.template?.page.width || 11906) * PX_PER_TWIP;
-    return state.zoom === "fit" ? Math.min(2, (el.pages.clientWidth - 48) / pageW) : state.zoom;
+    return state.zoom === "fit" ? Math.min(2, pagesInnerWidth() / pageW) : state.zoom;
   }
 
   function setZoom(z) {
@@ -1918,6 +1928,21 @@
     .then((r) => (r.ok ? r.json() : null))
     .then((cfg) => { siteConfig = cfg; applyConsent(); })
     .catch(() => applyConsent());
+
+  // ------------------------------------------------- мобильная раскладка
+  // Кнопки нижней панели и мобильного блока повторяют действия основных кнопок.
+  $$("[data-proxy]").forEach((b) => b.addEventListener("click", () => $(b.dataset.proxy).click()));
+
+  function setMobileView(view) {
+    document.body.classList.toggle("m-preview", view === "preview");
+    $$(".mobile-tabs [data-mview]").forEach((t) => {
+      t.classList.toggle("active", t.dataset.mview === view);
+      t.setAttribute("aria-selected", t.dataset.mview === view);
+    });
+    window.scrollTo({ top: 0 });
+    if (view === "preview") renderPreview();
+  }
+  $$(".mobile-tabs [data-mview]").forEach((t) => t.addEventListener("click", () => setMobileView(t.dataset.mview)));
 
   // ------------------------------------------------------------------ init
   (async () => {
