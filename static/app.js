@@ -262,7 +262,7 @@
           m.classList.add("warn");
           const avg = (need / have).toFixed(1).replace(".", ",");
           note = `Повторы: каждый вопрос ≈ ${avg} раза`;
-          add("warn", `${KIND_SHORT[k]}: не хватает ${lack} — вопросы будут повторяться в разных билетах (в среднем ${avg} раза). Внутри одного билета повторов нет.`);
+          add("warn", `${KIND_SHORT[k]}: не хватает ${lack}, вопросы будут повторяться в разных билетах (в среднем ${avg} раза). Внутри одного билета повторов нет.`);
         } else {
           m.classList.add("err");
           note = `Не хватает ${lack}`;
@@ -272,7 +272,7 @@
             maxTickets > 0 ? { label: `Сделать ${maxTickets}`, run: () => setCount(maxTickets) } : null,
           );
           if (!issues.some((x) => x.repeatHint)) {
-            add("info", "Либо включите «Разрешить повторы» — тогда вопросы будут использованы равномерно.", {
+            add("info", "Либо включите «Разрешить повторы», тогда вопросы будут использованы равномерно.", {
               label: "Разрешить",
               run: () => { el.repeat.checked = true; onParamsChange(); },
             });
@@ -284,7 +284,7 @@
         if (have > need && need > 0) add("info", `${KIND_SHORT[k]}: ${have - need} из ${have} не войдут в билеты${p.mode === "random" ? " (выбираются случайно)" : " (берутся первые по списку)"}.`);
       }
       if (pools[k].dups) {
-        add("warn", `${KIND_SHORT[k]}: найдено дубликатов — ${pools[k].dups}. Они не учитываются при распределении.`, {
+        add("warn", `${KIND_SHORT[k]}: найдено дубликатов: ${pools[k].dups}. Они не учитываются при распределении.`, {
           label: "Удалить",
           run: () => dedupe(k),
         });
@@ -364,7 +364,7 @@
     const parts = [];
     if (info.hasTheory) parts.push("теория");
     if (info.hasPractice) parts.push("практика");
-    $("#tpl-meta").textContent = `Найдены места для: ${parts.join(", ")}${info.hasNumber ? " · номер билета" : ""}`;
+    $("#tpl-meta").textContent = `Найдены места для: ${parts.join(", ")}${info.hasNumber ? " и номер билета" : ""}`;
     $("#tpl-reset").hidden = info.isDefault;
 
     // Поля шапки: сохраняем значения, введённые пользователем ранее.
@@ -502,7 +502,7 @@
     const p = params();
     const used = KINDS.filter((k) => p.per[k] > 0);
     if (!used.length || used.every((k) => !pools[k].unique.length)) {
-      el.pages.innerHTML = `<div class="empty"><div><strong>Добавьте вопросы</strong>Вставьте списки теоретических вопросов и практических заданий слева — билеты появятся здесь.</div></div>`;
+      el.pages.innerHTML = `<div class="empty"><div><strong>Добавьте вопросы</strong>Вставьте списки теоретических вопросов и практических заданий в настройках, и билеты появятся здесь.</div></div>`;
       el.table.innerHTML = "";
       return;
     }
@@ -684,7 +684,7 @@
     state.pdfStale = true;
     if (state.view === "pdf" && state.pdfUrl) {
       el.pdfEmpty.hidden = false;
-      $("p", el.pdfEmpty).textContent = "Данные изменились — обновите PDF-просмотр.";
+      $("p", el.pdfEmpty).textContent = "Данные изменились. Обновите PDF-просмотр.";
       $("#btn-pdf-preview").textContent = "Обновить PDF-просмотр";
       el.pdfFrame.hidden = true;
     }
@@ -993,7 +993,7 @@
     document.body.classList.toggle("focus", on);
     const b = $("#btn-focus");
     $("span", b).textContent = on ? "Свернуть" : "Развернуть";
-    b.title = on ? "Вернуть панель настроек (Esc)" : "Развернуть просмотр на весь экран (Esc — свернуть)";
+    b.title = on ? "Вернуть панель настроек (Esc)" : "Развернуть просмотр на весь экран (Esc, чтобы свернуть)";
     $("path", b).setAttribute("d", on ? "M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" : "M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5");
     if (state.view === "pages") renderPreview();
   }
@@ -1038,7 +1038,7 @@
     const res = await fetch(url, { credentials: "same-origin", ...options });
     if (res.status === 401 && !url.startsWith("/api/auth/")) {
       setUser(null);
-      openAuth("Сессия истекла — войдите снова.");
+      openAuth("Сессия истекла, войдите снова.");
       throw new Error("Требуется вход в личный кабинет");
     }
     if (!res.ok) throw new Error(await apiError(res));
@@ -1137,7 +1137,7 @@
       ["", "var(--border)"],
       ["Слабый", "var(--err)"],
       ["Средний", "var(--warn)"],
-      ["Хороший", "#22c55e"],
+      ["Хороший", "var(--good)"],
       ["Надёжный", "var(--ok)"],
     ];
     const [label, color] = levels[score];
@@ -1179,7 +1179,7 @@
     $("#auth-reason").textContent =
       authReason ||
       (reg
-        ? "Создайте аккаунт — сформированные билеты будут сохраняться в личном кабинете."
+        ? "Создайте аккаунт, и сформированные билеты будут сохраняться в личном кабинете."
         : "Войдите, чтобы сохранять билеты и возвращаться к ним в любой момент.");
     $("#auth-submit").textContent = reg ? "Создать аккаунт" : "Войти";
     $("#auth-password").autocomplete = reg ? "new-password" : "current-password";
@@ -1314,7 +1314,7 @@
         body: JSON.stringify({ name: $("#profile-name").value.trim() }),
       })).json();
       setUser({ ...state.user, ...user });
-      $("#cab-user").textContent = user.name ? `${user.name} · ${user.email}` : user.email;
+      $("#cab-user").textContent = user.name ? `${user.name}, ${user.email}` : user.email;
       toast("Имя сохранено");
     } catch (err) { toast(err.message, true); }
   });
@@ -1387,7 +1387,7 @@
   function defaultTitle() {
     const f = state.fields;
     const parts = [f["Дисциплина"], f["Группа"]].filter((x) => x && x.trim());
-    return (parts.join(" — ") || el.filename.value.trim() || "Экзаменационные билеты").slice(0, 200);
+    return (parts.join(", ") || el.filename.value.trim() || "Экзаменационные билеты").slice(0, 200);
   }
 
   async function saveSet({ asNew = false, title } = {}) {
@@ -1423,8 +1423,8 @@
     $("#save-as-new").hidden = !state.currentSet;
     $("#save-submit").textContent = state.currentSet ? "Обновить набор" : "Сохранить";
     $("#save-note").textContent = state.currentSet
-      ? "Набор уже есть в кабинете — изменения будут записаны в него. Можно сохранить и как отдельный новый набор."
-      : "Сохранятся параметры, списки вопросов и сами билеты — вместе с ручными заменами.";
+      ? "Набор уже есть в кабинете, изменения будут записаны в него. Можно сохранить и как отдельный новый набор."
+      : "Сохранятся параметры, списки вопросов и сами билеты вместе с ручными заменами.";
     $("#save-dialog").showModal();
     $("#save-title").select();
   }
@@ -1448,7 +1448,7 @@
   let cabinetSets = [];
   async function openCabinet() {
     if (!state.user) return openAuth(null, openCabinet);
-    $("#cab-user").textContent = state.user.name ? `${state.user.name} · ${state.user.email}` : state.user.email;
+    $("#cab-user").textContent = state.user.name ? `${state.user.name}, ${state.user.email}` : state.user.email;
     showCabTab("sets");
     $("#cab-search").value = "";
     $("#cab-list").innerHTML = `<li class="empty">Загрузка…</li>`;
@@ -1465,11 +1465,11 @@
     const needle = normKey($("#cab-search").value);
     const items = cabinetSets.filter((s) => !needle || normKey([s.title, ...Object.values(s.fields)].join(" ")).includes(needle));
     $("#cab-count").textContent = cabinetSets.length
-      ? `Сохранено наборов: ${cabinetSets.length}${needle ? ` · найдено: ${items.length}` : ""}`
+      ? `Сохранено наборов: ${cabinetSets.length}${needle ? `, найдено: ${items.length}` : ""}`
       : "";
     const list = $("#cab-list");
     if (!cabinetSets.length) {
-      list.innerHTML = `<li class="empty"><div><strong>Здесь пока пусто</strong>Сформируйте билеты и нажмите «Сохранить» — или просто скачайте их: после входа каждый экспорт сохраняется сюда автоматически.</div></li>`;
+      list.innerHTML = `<li class="empty"><div><strong>Здесь пока пусто</strong>Сформируйте билеты и нажмите «Сохранить» или просто скачайте их: после входа каждый экспорт сохраняется сюда автоматически.</div></li>`;
       return;
     }
     if (!items.length) {
@@ -1484,7 +1484,7 @@
         return `<li class="set ${cur ? "current" : ""}" data-id="${s.id}">
           <h4><span>${escapeHtml(s.title)}</span>${cur ? '<em class="tag">открыт</em>' : ""}</h4>
           <div class="meta">
-            <span>${s.ticketCount} ${plural(s.ticketCount, "билет", "билета", "билетов")}${per ? ` · ${per}` : ""}</span>
+            <span>${s.ticketCount} ${plural(s.ticketCount, "билет", "билета", "билетов")}${per ? `, ${per}` : ""}</span>
             ${info.map((x) => `<span>${x}</span>`).join("")}
             <span>${s.templateName ? `Шаблон: ${escapeHtml(s.templateName)}` : "Стандартный шаблон"}</span>
             <span>Изменён ${fmtDate(s.updatedAt)}</span>
@@ -1641,7 +1641,7 @@
     const opts = [`<option value="default">Стандартный (ГБПОУ КМП)</option>`];
     if (libraryTemplates.length) {
       opts.push(`<optgroup label="Библиотека шаблонов">${libraryTemplates
-        .map((t) => `<option value="lib:${t.id}">${escapeHtml(t.title)}${t.institution ? ` — ${escapeHtml(t.institution)}` : ""}</option>`)
+        .map((t) => `<option value="lib:${t.id}">${escapeHtml(t.title)}${t.institution ? `, ${escapeHtml(t.institution)}` : ""}</option>`)
         .join("")}</optgroup>`);
     }
     if (src === "custom" || src === "saved") {
@@ -1713,7 +1713,7 @@
     const fail = (msg) => { err.textContent = msg; err.hidden = false; };
     if (!submitFile) return fail("Выберите файл шаблона.");
     if (!$("#submit-title").value.trim()) return fail("Укажите название шаблона.");
-    if (!$("#submit-consent").checked) return fail("Отметьте согласие на публикацию — без него шаблон не будет отправлен.");
+    if (!$("#submit-consent").checked) return fail("Отметьте согласие на публикацию, без него шаблон не будет отправлен.");
     const fd = new FormData();
     fd.append("template", submitFile);
     fd.append("title", $("#submit-title").value.trim());
@@ -1725,7 +1725,7 @@
     try {
       await api("/api/templates/submissions", { method: "POST", body: fd });
       $("#submit-dialog").close();
-      toast("Шаблон отправлен на проверку. Статус — в личном кабинете, вкладка «Мои шаблоны»");
+      toast("Шаблон отправлен на проверку. Статус смотрите в личном кабинете, вкладка «Мои шаблоны»");
       if ($("#cabinet-dialog").open) loadMyTemplates();
     } catch (ex) {
       fail(ex.message);
@@ -1755,7 +1755,7 @@
         </li>`,
             )
             .join("")
-        : `<li class="empty"><div><strong>Вы ещё не отправляли шаблоны</strong>Загрузите свой шаблон в блоке «Шаблон билета» и нажмите «Отправить на сайт» — или кнопку выше.</div></li>`;
+        : `<li class="empty"><div><strong>Вы ещё не отправляли шаблоны</strong>Загрузите свой шаблон в блоке «Шаблон билета» и нажмите «Отправить на сайт» или кнопку выше.</div></li>`;
     } catch (err) {
       list.innerHTML = `<li class="empty">${escapeHtml(err.message)}</li>`;
     }

@@ -3,25 +3,26 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>CreatorTecets — экзаменационные билеты</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%234f46e5'/><path d='M9 9h14v3H9zm0 6h14v2H9zm0 5h9v2H9z' fill='white'/></svg>" />
+  <title>CreatorTecets: экзаменационные билеты по шаблону</title>
+  <meta name="description" content="Билеты к экзамену по шаблону вашего колледжа: вопросы распределяются сами, результат скачивается в Word и PDF." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%23231d19'/><path d='M8 9h16v3H8zm0 6h16v2H8zm0 5h10v2H8z' fill='%23ece3d0'/><rect x='8' y='24' width='16' height='2' fill='%23c23a1b'/></svg>" />
   <script>
     try { var t = localStorage.getItem("creatortecets:theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (e) {}
   </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500&family=PT+Sans+Narrow:wght@400;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <header class="topbar">
     <div class="brand">
-      <div class="logo" aria-hidden="true">
-        <svg viewBox="0 0 32 32"><rect width="32" height="32" rx="8"/><path d="M9 9h14v3H9zm0 6h14v2H9zm0 5h9v2H9z"/></svg>
-      </div>
-      <div>
-        <h1>CreatorTecets</h1>
-        <p>Автоматическое формирование экзаменационных билетов</p>
-      </div>
+      <h1 class="wordmark">CreatorTecets</h1>
+      <p>Экзаменационные билеты по шаблону колледжа</p>
     </div>
     <div class="topbar-actions">
+      <button class="btn ghost" id="btn-demo" type="button" title="Заполнить формы примерами вопросов">Пример</button>
+      <button class="btn ghost" id="btn-reset" type="button" title="Очистить все поля">Сбросить</button>
       <button class="btn ghost theme-btn" id="btn-theme" type="button" title="Тема оформления" aria-label="Тема оформления"></button>
       <span class="set-chip" id="current-set" hidden title="Текущий набор из личного кабинета"></span>
       <button class="btn secondary" id="btn-save" type="button" title="Сохранить билеты в личный кабинет">
@@ -30,8 +31,6 @@
       <button class="btn ghost account-btn" id="btn-account" type="button">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><span>Войти</span>
       </button>
-      <button class="btn ghost" id="btn-demo" type="button" title="Заполнить формы примерами вопросов">Пример</button>
-      <button class="btn ghost" id="btn-reset" type="button" title="Очистить все поля">Сбросить</button>
       <button class="btn secondary" id="btn-docx" type="button" disabled>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0-4-4m4 4 4-4M5 21h14"/></svg>Word (.docx)
       </button>
@@ -50,7 +49,6 @@
       </div>
       <article class="card" id="card-template">
         <header class="card-head">
-          <span class="step">1</span>
           <div>
             <h2>Шаблон билета</h2>
             <p class="muted">Оформление документа сохраняется полностью</p>
@@ -85,7 +83,6 @@
 
       <article class="card">
         <header class="card-head">
-          <span class="step">2</span>
           <div>
             <h2>Параметры</h2>
             <p class="muted">Сколько билетов и вопросов в каждом</p>
@@ -124,10 +121,9 @@
 
       <article class="card qcard" data-kind="theory">
         <header class="card-head">
-          <span class="step">3</span>
           <div>
             <h2>Теоретические вопросы</h2>
-            <p class="muted">По одному вопросу на строку · нумерация удаляется автоматически</p>
+            <p class="muted">По одному вопросу на строку, нумерация удаляется сама</p>
           </div>
           <span class="badge" id="theory-count">0</span>
         </header>
@@ -145,7 +141,6 @@
 
       <article class="card qcard" data-kind="practice">
         <header class="card-head">
-          <span class="step">4</span>
           <div>
             <h2>Практические задания</h2>
             <p class="muted">По одному заданию на строку</p>
@@ -207,7 +202,7 @@
               <span class="sep"></span>
               <button type="button" id="zoom-fit" title="По ширине окна">По ширине</button>
             </div>
-            <button class="btn small ghost" id="btn-focus" type="button" title="Развернуть просмотр на весь экран (Esc — свернуть)">
+            <button class="btn small ghost" id="btn-focus" type="button" title="Развернуть просмотр на весь экран (Esc, чтобы свернуть)">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><span>Развернуть</span>
             </button>
             <button class="btn small secondary" id="btn-shuffle" type="button" title="Перераспределить вопросы случайным образом">
@@ -273,7 +268,7 @@
   <div class="cookie-banner" id="cookie-banner" role="dialog" aria-live="polite" aria-label="Использование cookie" hidden>
     <div class="cookie-text">
       <strong>Мы используем cookie</strong>
-      <p>Необходимые cookie нужны для входа в личный кабинет и сохранения настроек. С вашего согласия мы также используем cookie сервисов Яндекса (Метрика и Рекламная сеть) для статистики и показа рекламы. Подробнее — в <a href="/privacy.html">Политике конфиденциальности</a>.</p>
+      <p>Необходимые cookie нужны для входа в личный кабинет и сохранения настроек. С вашего согласия мы также используем cookie сервисов Яндекса (Метрика и Рекламная сеть) для статистики и показа рекламы. Подробнее в <a href="/privacy.html">Политике конфиденциальности</a>.</p>
     </div>
     <div class="cookie-actions">
       <button class="btn ghost" type="button" id="cookie-necessary">Только необходимые</button>
@@ -374,13 +369,13 @@
         <h3>Отправить шаблон на сайт</h3>
         <button class="icon-btn" type="button" data-close aria-label="Закрыть">✕</button>
       </header>
-      <p class="muted small">Шаблон проверит администратор. После одобрения он появится в библиотеке и им смогут пользоваться все. Отправлять или нет — решаете вы.</p>
+      <p class="muted small">Шаблон проверит администратор. После одобрения он появится в библиотеке и им смогут пользоваться все. Отправлять или нет, решаете вы.</p>
       <div class="file-chip">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>
         <div><strong id="submit-file-name">Файл не выбран</strong><span class="muted" id="submit-file-meta"></span></div>
         <label class="btn small ghost push"><input type="file" id="submit-file" accept=".docx" hidden />Выбрать файл</label>
       </div>
-      <label class="text-field"><span>Название шаблона</span><input type="text" id="submit-title" maxlength="150" placeholder="Например, Билет ГБПОУ КМП — 3 колонки" /></label>
+      <label class="text-field"><span>Название шаблона</span><input type="text" id="submit-title" maxlength="150" placeholder="Например, Билет ГБПОУ КМП, 3 колонки" /></label>
       <label class="text-field"><span>Учебное заведение <span class="muted">(необязательно)</span></span><input type="text" id="submit-institution" maxlength="200" /></label>
       <label class="text-field"><span>Описание <span class="muted">(необязательно)</span></span><textarea id="submit-description" maxlength="1000" rows="3" placeholder="Для каких экзаменов подходит, особенности оформления"></textarea></label>
       <p class="notice small">Перед отправкой уберите из шаблона личные данные, которые не должны попасть в общий доступ (ФИО, подписи, телефоны).</p>

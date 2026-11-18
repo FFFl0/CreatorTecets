@@ -3,31 +3,34 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Политика конфиденциальности — CreatorTecets</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%234f46e5'/><path d='M9 9h14v3H9zm0 6h14v2H9zm0 5h9v2H9z' fill='white'/></svg>" />
+  <title>Политика конфиденциальности: CreatorTecets</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%23231d19'/><path d='M8 9h16v3H8zm0 6h16v2H8zm0 5h10v2H8z' fill='%23ece3d0'/><rect x='8' y='24' width='16' height='2' fill='%23c23a1b'/></svg>" />
   <script>
     try { var t = localStorage.getItem("creatortecets:theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (e) {}
   </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500&family=PT+Sans+Narrow:wght@400;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
   <style>
-    .doc { max-width: 860px; margin: 24px auto 48px; padding: 32px 40px; }
-    .doc h1 { font-size: 26px; margin-bottom: 4px; }
-    .doc h2 { font-size: 18px; margin: 28px 0 8px; }
-    .doc p, .doc li { font-size: 15px; line-height: 1.65; }
-    .doc ul { padding-left: 22px; }
-    .doc table { width: 100%; border-collapse: collapse; font-size: 14px; margin: 8px 0; }
-    .doc th, .doc td { border: 1px solid var(--border); padding: 8px 10px; text-align: left; vertical-align: top; }
-    .doc th { background: var(--surface-2); }
-    .doc code { background: var(--surface-2); padding: 1px 5px; border-radius: 4px; font-size: 13px; }
-    .doc a { color: var(--accent); }
-    .placeholder { background: var(--warn-soft); color: var(--warn); padding: 0 4px; border-radius: 4px; font-weight: 600; }
-    .back { display: inline-flex; margin-bottom: 16px; }
-    @media (max-width: 640px) { .doc { padding: 20px 16px; margin: 12px; } .doc table { display: block; overflow-x: auto; } }
+    .doc { max-width: 54rem; margin: var(--space-lg) auto var(--space-2xl); padding: var(--space-md) var(--space-lg) 0; }
+    .doc h1 { font-family: var(--font-display); font-weight: 500; text-transform: uppercase; font-size: var(--text-3xl); line-height: 1.1; margin-bottom: var(--space-2xs); max-width: none; }
+    .doc h2 { font-size: var(--text-lg); margin: var(--space-xl) 0 var(--space-xs); padding-top: var(--space-xs); border-top: 1px solid var(--color-ink); }
+    .doc p, .doc li { line-height: 1.6; }
+    .doc ul { padding-left: var(--space-lg); }
+    .doc table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); margin: var(--space-xs) 0; }
+    .doc th, .doc td { border-bottom: 1px solid var(--color-rule); padding: var(--space-xs) var(--space-sm); text-align: left; vertical-align: top; }
+    .doc th { border-bottom-color: var(--color-ink); color: var(--color-muted); }
+    .doc code { background: var(--color-paper-2); padding: 0 var(--space-2xs); font-size: var(--text-sm); }
+    .doc a { color: var(--color-ink); }
+    .placeholder { background: var(--color-paper-3); color: var(--color-err); padding: 0 var(--space-2xs); font-weight: 700; }
+    .back { margin-bottom: var(--space-md); }
+    @media (max-width: 640px) { .doc { padding: var(--space-sm) var(--space-md) 0; margin: var(--space-xs) auto var(--space-xl); } .doc table { display: block; overflow-x: auto; } }
   </style>
 </head>
 <body>
   <main class="card doc">
-    <a class="btn small ghost back" href="/">← Вернуться к приложению</a>
+    <a class="btn small secondary back" href="/">Вернуться к приложению</a>
     <h1>Политика конфиденциальности</h1>
     <p class="muted">Редакция от 16 ноября 2026 г.</p>
 

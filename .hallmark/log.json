@@ -1,0 +1,32 @@
+[
+ {
+  "mode": "redesign",
+  "depth": "full",
+  "scope": "app",
+  "shape": "app screen",
+  "theme": "broadside",
+  "axes": "light/display-condensed/warm",
+  "hero": "none (app scope)",
+  "nav": "kept top bar, wordmark left, tools and three outputs right",
+  "footer": "one running line: copyright, policy, cookie settings",
+  "imagery": "none; the product itself, the A4 ticket sheets",
+  "photos": [],
+  "entry": "settings column of ruled sections beside the check and the sheet stack",
+  "fingerprint": "ruled-bill-sections, particulars-check, sheet-well",
+  "sections": [
+   "template",
+   "parameters",
+   "theory",
+   "practice",
+   "check",
+   "preview"
+  ],
+  "signature": "the stack of A4 ticket sheets drawn live on buff stock",
+  "waived": [
+   "24b",
+   "39b"
+  ],
+  "prompt": "a tool where a college teacher assembles exam tickets from a Word template and downloads them as Word or PDF",
+  "date": "2026-11-18"
+ }
+]
