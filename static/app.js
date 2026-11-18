@@ -1002,32 +1002,8 @@
     if (e.key === "Escape" && document.body.classList.contains("focus") && !$("#replace-dialog").open) setFocus(false);
   });
 
-  // ---------------------------------------------------------------- theme
-  const THEME_KEY = "creatortecets:theme";
-  const THEMES = ["auto", "light", "dark"];
-  const THEME_LABEL = { auto: "Тема: как в системе", light: "Тема: светлая", dark: "Тема: тёмная" };
-  const THEME_ICON = {
-    auto: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/></svg>',
-    light: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
-    dark: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>',
-  };
-  function applyTheme(theme) {
-    if (theme === "auto") delete document.documentElement.dataset.theme;
-    else document.documentElement.dataset.theme = theme;
-    const b = $("#btn-theme");
-    b.innerHTML = THEME_ICON[theme];
-    b.title = THEME_LABEL[theme] + " (нажмите, чтобы сменить)";
-    b.setAttribute("aria-label", THEME_LABEL[theme]);
-  }
-  let theme = "auto";
-  try { theme = THEMES.includes(localStorage.getItem(THEME_KEY)) ? localStorage.getItem(THEME_KEY) : "auto"; } catch { /* */ }
-  applyTheme(theme);
-  $("#btn-theme").addEventListener("click", () => {
-    theme = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length];
-    applyTheme(theme);
-    try { localStorage.setItem(THEME_KEY, theme); } catch { /* */ }
-    toast(THEME_LABEL[theme]);
-  });
+  // Тёмной темы больше нет: убираем сохранённый выбор, если он остался от прежней версии.
+  try { localStorage.removeItem("creatortecets:theme"); } catch { /* хранилище недоступно */ }
 
   // ------------------------------------------------------- личный кабинет
   state.user = null;

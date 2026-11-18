@@ -6,9 +6,6 @@
   <title>CreatorTecets: экзаменационные билеты по шаблону</title>
   <meta name="description" content="Билеты к экзамену по шаблону вашего колледжа: вопросы распределяются сами, результат скачивается в Word и PDF." />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%23231d19'/><path d='M8 9h16v3H8zm0 6h16v2H8zm0 5h10v2H8z' fill='%23ece3d0'/><rect x='8' y='24' width='16' height='2' fill='%23c23a1b'/></svg>" />
-  <script>
-    try { var t = localStorage.getItem("creatortecets:theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (e) {}
-  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500&family=PT+Sans+Narrow:wght@400;700&display=swap" rel="stylesheet" />
@@ -23,7 +20,6 @@
     <div class="topbar-actions">
       <button class="btn ghost" id="btn-demo" type="button" title="Заполнить формы примерами вопросов">Пример</button>
       <button class="btn ghost" id="btn-reset" type="button" title="Очистить все поля">Сбросить</button>
-      <button class="btn ghost theme-btn" id="btn-theme" type="button" title="Тема оформления" aria-label="Тема оформления"></button>
       <span class="set-chip" id="current-set" hidden title="Текущий набор из личного кабинета"></span>
       <button class="btn secondary" id="btn-save" type="button" title="Сохранить билеты в личный кабинет">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h11l3 3v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M7 3v6h8V3M7 21v-7h10v7"/></svg>Сохранить
